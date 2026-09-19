@@ -35,7 +35,7 @@ class TerrainService {
   Future<TerrainBookingModel> scanQrCode(String token) async {
     final response = await _api.post(
       '/terrain/bookings/scan',
-      data: {'qr_token': token},
+      data: {'token': token},
     );
     final data = response.data;
     final bookingData = data is Map && data['data'] is Map
