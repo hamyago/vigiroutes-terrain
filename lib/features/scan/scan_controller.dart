@@ -13,7 +13,7 @@ class ScanController extends ChangeNotifier {
   String? get error => _error;
   TerrainBookingModel? get scannedBooking => _scannedBooking;
 
-  final TerrainService _service = TerrainService();
+  final TerrainService _service = TerrainService.instance;
 
   Future<bool> processScan(String qrToken) async {
     if (_isLoading) return false;
@@ -22,7 +22,7 @@ class ScanController extends ChangeNotifier {
     _isScanning = false;
     notifyListeners();
     try {
-      final booking = await _service.scanQrCode(qrToken);
+      final booking = await _service.scanQr(qrToken);
       _scannedBooking = booking;
       _isLoading = false;
       notifyListeners();

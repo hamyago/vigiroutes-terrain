@@ -13,6 +13,7 @@ class TerrainBookingModel {
   final String? vehicleCategory;
   final String clientName;
   final String clientPhone;
+  final String? centerName;
 
   const TerrainBookingModel({
     required this.id,
@@ -27,6 +28,7 @@ class TerrainBookingModel {
     this.vehicleCategory,
     required this.clientName,
     required this.clientPhone,
+    this.centerName,
   });
 
   factory TerrainBookingModel.fromJson(Map<String, dynamic> json) {
@@ -45,7 +47,16 @@ class TerrainBookingModel {
       vehicleCategory: json['vehicle_category'] as String?,
       clientName: json['client_name'] as String,
       clientPhone: json['client_phone'] as String,
+      centerName: json['center_name'] as String?,
     );
+  }
+
+  /// Heure du créneau formatée (ex: "08:30")
+  String get slotTime {
+    if (slotStartsAt == null) return '--:--';
+    final h = slotStartsAt!.hour.toString().padLeft(2, '0');
+    final m = slotStartsAt!.minute.toString().padLeft(2, '0');
+    return '$h:$m';
   }
 
   String get statusLabel {
@@ -84,6 +95,7 @@ class TerrainBookingModel {
     String? vehicleCategory,
     String? clientName,
     String? clientPhone,
+    String? centerName,
   }) {
     return TerrainBookingModel(
       id: id ?? this.id,
@@ -98,6 +110,7 @@ class TerrainBookingModel {
       vehicleCategory: vehicleCategory ?? this.vehicleCategory,
       clientName: clientName ?? this.clientName,
       clientPhone: clientPhone ?? this.clientPhone,
+      centerName: centerName ?? this.centerName,
     );
   }
 }
@@ -179,15 +192,15 @@ class TerrainStatsModel {
 
   factory TerrainStatsModel.fromJson(Map<String, dynamic> json) {
     return TerrainStatsModel(
-      todayTotal:      json['today_total']      as int?    ?? 0,
-      todayCompleted:  json['today_completed']  as int?    ?? 0,
-      todayPending:    json['today_pending']    as int?    ?? 0,
-      weekTotal:       json['week_total']       as int?    ?? 0,
-      monthTotal:      json['month_total']      as int?    ?? 0,
-      pendingNow:      json['pending_now']      as int?    ?? 0,
-      favorableRate:   (json['favorable_rate']   as num?  ?? 0).toDouble(),
-      defavorableRate: (json['defavorable_rate'] as num?  ?? 0).toDouble(),
-      contreVisiteRate:(json['contre_visite_rate'] as num? ?? 0).toDouble(),
+      todayTotal: json['today_total'] as int? ?? 0,
+      todayCompleted: json['today_completed'] as int? ?? 0,
+      todayPending: json['today_pending'] as int? ?? 0,
+      weekTotal: json['week_total'] as int? ?? 0,
+      monthTotal: json['month_total'] as int? ?? 0,
+      pendingNow: json['pending_now'] as int? ?? 0,
+      favorableRate: (json['favorable_rate'] as num? ?? 0).toDouble(),
+      defavorableRate: (json['defavorable_rate'] as num? ?? 0).toDouble(),
+      contreVisiteRate: (json['contre_visite_rate'] as num? ?? 0).toDouble(),
     );
   }
 }

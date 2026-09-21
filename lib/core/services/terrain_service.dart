@@ -1,5 +1,5 @@
 import 'package:vigiroutes_terrain/services/api_service.dart';
-import 'package:vigiroutes_terrain/modules/ct/terrain_models_updated.dart';
+import '../../core/models/terrain_models.dart';
 
 class TerrainService {
   static final TerrainService instance = TerrainService._();
@@ -15,23 +15,25 @@ class TerrainService {
   }
 
   /// Scan a client QR code token.
-  ///
-  /// Returns a raw map with keys:
-  ///   - `success` (bool)
-  ///   - `booking` (Map?) — booking data when success is true
-  ///   - `message` (String?) — error or info message
-  Future<Map<String, dynamic>> scanQr(String token) async {
+  /// Returns the booking on success, throws on error.
+  Future<TerrainBookingModel> scanQr(String token) async {
     final response = await ApiService.instance.post(
       '/v1/terrain/scan-qr',
       body: {'token': token},
     );
-    return response['data'] as Map<String, dynamic>? ?? {};
+    final data = response['data'];
+    if (data is Map<String, dynamic>) {
+      // Response peut contenir directement le booking ou un objet {booking: {...}}
+      final bookingMap = data.containsKey('booking')
+          ? data['booking'] as Map<String, dynamic>
+          : data;
+      return TerrainBookingModel.fromJson(bookingMap);
+    }
+    throw Exception('Réponse inattendue du serveur');
   }
 
   /// Submit the final inspection report for a booking.
-  ///
   /// [result] must be one of: favorable, defavorable, contre_visite
-  /// [reportNotes] optional free-text notes from the terrain agent.
   Future<void> submitFinalReport(
     String bookingId, {
     required String result,
@@ -47,9 +49,6 @@ class TerrainService {
   }
 
   /// Fetch dashboard statistics for the terrain agent.
-  ///
-  /// [date] optional date filter in YYYY-MM-DD format. Defaults to today
-  ///   on the server when omitted.
   Future<TerrainDashboardModel> getDashboard({String? date}) async {
     final response = await ApiService.instance.get(
       '/v1/terrain/dashboard',
