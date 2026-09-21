@@ -153,3 +153,41 @@ class TerrainDashboardModel {
     );
   }
 }
+
+class TerrainStatsModel {
+  final int todayTotal;
+  final int todayCompleted;
+  final int todayPending;
+  final int weekTotal;
+  final int monthTotal;
+  final int pendingNow;
+  final double favorableRate;
+  final double defavorableRate;
+  final double contreVisiteRate;
+
+  const TerrainStatsModel({
+    required this.todayTotal,
+    required this.todayCompleted,
+    required this.todayPending,
+    required this.weekTotal,
+    required this.monthTotal,
+    required this.pendingNow,
+    required this.favorableRate,
+    required this.defavorableRate,
+    required this.contreVisiteRate,
+  });
+
+  factory TerrainStatsModel.fromJson(Map<String, dynamic> json) {
+    return TerrainStatsModel(
+      todayTotal:      json['today_total']      as int?    ?? 0,
+      todayCompleted:  json['today_completed']  as int?    ?? 0,
+      todayPending:    json['today_pending']    as int?    ?? 0,
+      weekTotal:       json['week_total']       as int?    ?? 0,
+      monthTotal:      json['month_total']      as int?    ?? 0,
+      pendingNow:      json['pending_now']      as int?    ?? 0,
+      favorableRate:   (json['favorable_rate']   as num?  ?? 0).toDouble(),
+      defavorableRate: (json['defavorable_rate'] as num?  ?? 0).toDouble(),
+      contreVisiteRate:(json['contre_visite_rate'] as num? ?? 0).toDouble(),
+    );
+  }
+}
