@@ -129,7 +129,7 @@ class _VehicleInfoCard extends StatelessWidget {
             _Row(label: 'Nom', value: booking.clientName),
             _Row(label: 'Téléphone', value: booking.clientPhone),
             _Row(label: 'Heure de passage', value: booking.slotTime),
-            _Row(label: 'Transport', value: _transportLabel(booking.transportMode)),
+            _Row(label: 'Transport', value: _transportLabel(booking.transportMode ?? '')),
           ],
         ),
       ),

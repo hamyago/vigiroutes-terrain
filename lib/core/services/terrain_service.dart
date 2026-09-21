@@ -7,6 +7,15 @@ class TerrainService {
 
   final _api = ApiService();
 
+  /// Authentification de l'agent terrain.
+  Future<Map<String, dynamic>> login(String email, String password) async {
+    final response = await _api.post(
+      '/v1/terrain/login',
+      data: {'email': email, 'password': password},
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
   /// Fetch all bookings scheduled for today at this agent's assigned center.
   Future<List<TerrainBookingModel>> getTodayBookings() async {
     final response = await _api.get('/v1/terrain/today-bookings');

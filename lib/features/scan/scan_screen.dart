@@ -341,7 +341,7 @@ class _ScanSuccessSheet extends StatelessWidget {
             _InfoRow(label: 'Véhicule', value: '${booking.vehicleBrand} ${booking.vehicleModel}'),
             _InfoRow(label: 'Client', value: booking.clientName),
             _InfoRow(label: 'Heure de passage', value: booking.slotTime),
-            _InfoRow(label: 'Centre', value: booking.centerName),
+            _InfoRow(label: 'Centre', value: booking.centerName ?? ''),
             const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,

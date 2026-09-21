@@ -15,7 +15,7 @@ class AuthProvider extends ChangeNotifier {
   String? get agentName => _agentName;
   String? get centerName => _centerName;
 
-  final TerrainService _service = TerrainService();
+  final TerrainService _service = TerrainService.instance;
 
   Future<void> checkAuth() async {
     _isLoading = true;
