@@ -1,60 +1,62 @@
-import '../models/terrain_models.dart';
-import 'api_service.dart';
+import 'package:vigiroutes_terrain/services/api_service.dart';
+import 'package:vigiroutes_terrain/modules/ct/terrain_models_updated.dart';
 
 class TerrainService {
-  static final TerrainService _instance = TerrainService._internal();
-  factory TerrainService() => _instance;
-  TerrainService._internal();
+  static final TerrainService instance = TerrainService._();
+  TerrainService._();
 
-  final ApiService _api = ApiService();
-
-  Future<Map<String, dynamic>> login(String email, String password) async {
-    final response = await _api.post(
-      '/terrain/auth/login',
-      data: {'email': email, 'password': password},
-    );
-    return Map<String, dynamic>.from(response.data as Map);
-  }
-
+  /// Fetch all bookings scheduled for today at this agent's assigned center.
   Future<List<TerrainBookingModel>> getTodayBookings() async {
-    final response = await _api.get('/terrain/bookings/today');
-    final data = response.data;
-    List<dynamic> list;
-    if (data is List) {
-      list = data;
-    } else if (data is Map && data['data'] is List) {
-      list = data['data'] as List;
-    } else {
-      list = [];
-    }
-    return list
-        .map((e) => TerrainBookingModel.fromJson(Map<String, dynamic>.from(e as Map)))
+    final response = await ApiService.instance.get('/v1/terrain/today-bookings');
+    final List data = response['data'] as List? ?? [];
+    return data
+        .map((e) => TerrainBookingModel.fromJson(e as Map<String, dynamic>))
         .toList();
   }
 
-  Future<TerrainBookingModel> scanQrCode(String token) async {
-    final response = await _api.post(
-      '/terrain/bookings/scan',
-      data: {'token': token},
+  /// Scan a client QR code token.
+  ///
+  /// Returns a raw map with keys:
+  ///   - `success` (bool)
+  ///   - `booking` (Map?) — booking data when success is true
+  ///   - `message` (String?) — error or info message
+  Future<Map<String, dynamic>> scanQr(String token) async {
+    final response = await ApiService.instance.post(
+      '/v1/terrain/scan-qr',
+      body: {'token': token},
     );
-    final data = response.data;
-    final bookingData = data is Map && data['data'] is Map
-        ? Map<String, dynamic>.from(data['data'] as Map)
-        : Map<String, dynamic>.from(data as Map);
-    return TerrainBookingModel.fromJson(bookingData);
+    return response['data'] as Map<String, dynamic>? ?? {};
   }
 
-  Future<void> startInspection(String bookingId) async {
-    await _api.post('/terrain/bookings/$bookingId/start');
+  /// Submit the final inspection report for a booking.
+  ///
+  /// [result] must be one of: favorable, defavorable, contre_visite
+  /// [reportNotes] optional free-text notes from the terrain agent.
+  Future<void> submitFinalReport(
+    String bookingId, {
+    required String result,
+    String? reportNotes,
+  }) async {
+    await ApiService.instance.post(
+      '/v1/terrain/bookings/$bookingId/final-report',
+      body: {
+        'result': result,
+        if (reportNotes != null) 'report_notes': reportNotes,
+      },
+    );
   }
 
-  Future<void> submitReport(
-      String bookingId, Map<String, dynamic> reportData) async {
-    await _api.post('/terrain/bookings/$bookingId/report', data: reportData);
-  }
-
-  Future<Map<String, dynamic>> getDashboardStats() async {
-    final response = await _api.get('/terrain/stats');
-    return Map<String, dynamic>.from(response.data as Map);
+  /// Fetch dashboard statistics for the terrain agent.
+  ///
+  /// [date] optional date filter in YYYY-MM-DD format. Defaults to today
+  ///   on the server when omitted.
+  Future<TerrainDashboardModel> getDashboard({String? date}) async {
+    final response = await ApiService.instance.get(
+      '/v1/terrain/dashboard',
+      queryParams: date != null ? {'date': date} : null,
+    );
+    return TerrainDashboardModel.fromJson(
+      response['data'] as Map<String, dynamic>,
+    );
   }
 }
