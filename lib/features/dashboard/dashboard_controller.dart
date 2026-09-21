@@ -11,18 +11,29 @@ class DashboardController extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  final TerrainService _service = TerrainService();
+  final TerrainService _service = TerrainService.instance;
 
   Future<void> loadStats() async {
     _isLoading = true;
     _error = null;
     notifyListeners();
     try {
-      final data = await _service.getDashboardStats();
-      final statsData = data['data'] is Map
-          ? Map<String, dynamic>.from(data['data'] as Map)
-          : data;
-      _stats = TerrainStatsModel.fromJson(statsData);
+      final dashboard = await _service.getDashboard();
+      _stats = TerrainStatsModel(
+        todayTotal: dashboard.totalExpectedToday,
+        todayCompleted: dashboard.arrived,
+        todayPending: dashboard.totalExpectedToday - dashboard.arrived,
+        weekTotal: 0,
+        monthTotal: 0,
+        pendingNow: dashboard.totalExpectedToday - dashboard.arrived,
+        favorableRate: dashboard.totalExpectedToday > 0
+            ? dashboard.favorable / dashboard.totalExpectedToday
+            : 0.0,
+        defavorableRate: dashboard.totalExpectedToday > 0
+            ? dashboard.defavorable / dashboard.totalExpectedToday
+            : 0.0,
+        contreVisiteRate: 0.0,
+      );
     } catch (e) {
       _error = _extractError(e);
     } finally {
