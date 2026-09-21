@@ -23,13 +23,28 @@ class TerrainService {
     );
     final data = response['data'];
     if (data is Map<String, dynamic>) {
-      // Response peut contenir directement le booking ou un objet {booking: {...}}
       final bookingMap = data.containsKey('booking')
           ? data['booking'] as Map<String, dynamic>
           : data;
       return TerrainBookingModel.fromJson(bookingMap);
     }
     throw Exception('Réponse inattendue du serveur');
+  }
+
+  /// Démarre l'inspection d'une réservation (status → inspection_in_progress).
+  Future<void> startInspection(String bookingId) async {
+    await ApiService.instance.post(
+      '/v1/terrain/bookings/$bookingId/start-inspection',
+      body: {},
+    );
+  }
+
+  /// Soumet le rapport d'inspection final.
+  Future<void> submitReport(String bookingId, Map<String, dynamic> data) async {
+    await ApiService.instance.post(
+      '/v1/terrain/bookings/$bookingId/final-report',
+      body: data,
+    );
   }
 
   /// Submit the final inspection report for a booking.

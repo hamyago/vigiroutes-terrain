@@ -55,10 +55,7 @@ class BookingDetailController extends ChangeNotifier {
     notifyListeners();
     try {
       await _service.startInspection(_booking!.id);
-      final updated = _booking!.copyWith(
-        status: 'inspection_in_progress',
-        inspectionStartedAt: DateTime.now(),
-      );
+      final updated = _booking!.copyWith(status: 'inspection_in_progress');
       _booking = updated;
       _cache[updated.id] = updated;
       _isLoading = false;
@@ -95,10 +92,7 @@ class BookingDetailController extends ChangeNotifier {
         'pv_number': pvNumber,
       };
       await _service.submitReport(_booking!.id, reportData);
-      final updated = _booking!.copyWith(
-        status: 'completed',
-        completedAt: DateTime.now(),
-      );
+      final updated = _booking!.copyWith(status: 'completed');
       _booking = updated;
       _cache[updated.id] = updated;
       _isLoading = false;
