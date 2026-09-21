@@ -10,7 +10,7 @@ class TerrainService {
   /// Authentification de l'agent terrain.
   Future<Map<String, dynamic>> login(String email, String password) async {
     final response = await _api.post(
-      '/v1/terrain/login',
+      '/terrain/auth/login',
       data: {'email': email, 'password': password},
     );
     return response.data as Map<String, dynamic>;
@@ -18,7 +18,7 @@ class TerrainService {
 
   /// Fetch all bookings scheduled for today at this agent's assigned center.
   Future<List<TerrainBookingModel>> getTodayBookings() async {
-    final response = await _api.get('/v1/terrain/today-bookings');
+    final response = await _api.get('/terrain/bookings/today');
     final List data = response.data['data'] as List? ?? [];
     return data
         .map((e) => TerrainBookingModel.fromJson(e as Map<String, dynamic>))
@@ -28,7 +28,7 @@ class TerrainService {
   /// Scan a client QR code token.
   Future<TerrainBookingModel> scanQr(String token) async {
     final response = await _api.post(
-      '/v1/terrain/scan-qr',
+      '/terrain/bookings/scan',
       data: {'token': token},
     );
     final data = response.data['data'];
@@ -44,7 +44,7 @@ class TerrainService {
   /// Démarre l'inspection d'une réservation (status → inspection_in_progress).
   Future<void> startInspection(String bookingId) async {
     await _api.post(
-      '/v1/terrain/bookings/$bookingId/start-inspection',
+      '/terrain/bookings/$bookingId/start',
       data: {},
     );
   }
@@ -52,7 +52,7 @@ class TerrainService {
   /// Soumet le rapport d'inspection final.
   Future<void> submitReport(String bookingId, Map<String, dynamic> data) async {
     await _api.post(
-      '/v1/terrain/bookings/$bookingId/final-report',
+      '/terrain/bookings/$bookingId/report',
       data: data,
     );
   }
@@ -60,7 +60,7 @@ class TerrainService {
   /// Fetch dashboard statistics for the terrain agent.
   Future<TerrainDashboardModel> getDashboard({String? date}) async {
     final response = await _api.get(
-      '/v1/terrain/dashboard',
+      '/terrain/stats',
       params: date != null ? {'date': date} : null,
     );
     return TerrainDashboardModel.fromJson(
