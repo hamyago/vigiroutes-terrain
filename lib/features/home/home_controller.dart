@@ -11,7 +11,7 @@ class HomeController extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  final TerrainService _service = TerrainService();
+  final TerrainService _service = TerrainService.instance;
 
   Future<void> loadBookings() async {
     _isLoading = true;

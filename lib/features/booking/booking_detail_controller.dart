@@ -11,7 +11,7 @@ class BookingDetailController extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  final TerrainService _service = TerrainService();
+  final TerrainService _service = TerrainService.instance;
 
   // In-memory cache shared across controllers
   static final Map<String, TerrainBookingModel> _cache = {};
