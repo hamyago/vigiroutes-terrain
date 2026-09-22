@@ -41,7 +41,7 @@ class TerrainService {
     throw Exception('Réponse inattendue du serveur');
   }
 
-  /// Démarre l'inspection d'une réservation (status → inspection_in_progress).
+  /// Démarre l'inspection d'une réservation (status → in_progress).
   Future<void> startInspection(String bookingId) async {
     await _api.post(
       '/terrain/bookings/$bookingId/start',

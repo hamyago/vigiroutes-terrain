@@ -58,7 +58,9 @@ class AuthProvider extends ChangeNotifier {
       _agentName = agentData?['name']?.toString() ??
           agentData?['full_name']?.toString() ??
           result['name']?.toString() ?? '';
+      final ctPartner = agentData?['ct_partner'] as Map<String, dynamic>?;
       _centerName = agentData?['center_name']?.toString() ??
+          ctPartner?['name']?.toString() ??
           result['center_name']?.toString() ?? '';
 
       await prefs.setString('agent_name', _agentName ?? '');

@@ -55,7 +55,7 @@ class BookingDetailController extends ChangeNotifier {
     notifyListeners();
     try {
       await _service.startInspection(_booking!.id);
-      final updated = _booking!.copyWith(status: 'inspection_in_progress');
+      final updated = _booking!.copyWith(status: 'in_progress');
       _booking = updated;
       _cache[updated.id] = updated;
       _isLoading = false;

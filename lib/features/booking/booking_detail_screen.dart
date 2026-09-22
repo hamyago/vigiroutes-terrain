@@ -186,15 +186,15 @@ class _StatusTimeline extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final steps = [
-      ('Arrivé', 'vehicle_at_center', Icons.where_to_vote),
-      ('Contrôle', 'inspection_in_progress', Icons.build),
+      ('Arrivé', 'arrived', Icons.where_to_vote),
+      ('Contrôle', 'in_progress', Icons.build),
       ('Terminé', 'completed', Icons.check_circle),
     ];
 
     final currentIndex = switch (status) {
-      'vehicle_at_center' => 0,
-      'inspection_in_progress' => 1,
-      'completed' => 2,
+      'arrived' => 0,
+      'in_progress' => 1,
+      'favorable' || 'defavorable' || 'contre_visite' || 'completed' => 2,
       _ => -1,
     };
 
@@ -275,7 +275,7 @@ class _ActionSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (booking.status == 'vehicle_at_center') {
+    if (booking.status == 'arrived') {
       return SizedBox(
         width: double.infinity,
         height: 52,
@@ -318,7 +318,7 @@ class _ActionSection extends StatelessWidget {
       );
     }
 
-    if (booking.status == 'inspection_in_progress') {
+    if (booking.status == 'in_progress') {
       return SizedBox(
         width: double.infinity,
         height: 52,

@@ -261,12 +261,15 @@ class _StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color) = switch (status) {
-      'pending_arrival' => ('En attente', Colors.grey),
-      'vehicle_at_center' => ('Au centre', Colors.blue),
-      'inspection_in_progress' => ('En cours', Colors.amber[700]!),
+      'confirmed' => ('Confirmé', Colors.grey),
+      'arrived' => ('Au centre', Colors.blue),
+      'in_progress' => ('En cours', Colors.amber[700]!),
+      'favorable' => ('Favorable', Colors.green),
+      'defavorable' => ('Défavorable', Colors.red),
+      'contre_visite' => ('Contre-visite', Colors.orange),
       'completed' => ('Terminé', Colors.green),
       'cancelled' => ('Annulé', Colors.red),
-      _ => ('Inconnu', Colors.grey),
+      _ => ('En attente', Colors.grey),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

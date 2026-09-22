@@ -11,12 +11,40 @@ class ScanScreen extends StatefulWidget {
   State<ScanScreen> createState() => _ScanScreenState();
 }
 
-class _ScanScreenState extends State<ScanScreen> {
-  final MobileScannerController _cameraController = MobileScannerController();
+class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
+  late final MobileScannerController _cameraController;
   bool _bottomSheetShown = false;
 
   @override
+  void initState() {
+    super.initState();
+    _cameraController = MobileScannerController(
+      detectionSpeed: DetectionSpeed.noDuplicates,
+      facing: CameraFacing.back,
+      torchEnabled: false,
+    );
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!_cameraController.value.isInitialized) return;
+    switch (state) {
+      case AppLifecycleState.resumed:
+        _cameraController.start();
+        break;
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.paused:
+        _cameraController.stop();
+        break;
+      default:
+        break;
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _cameraController.dispose();
     super.dispose();
   }
@@ -97,6 +125,15 @@ class _ScanScreenState extends State<ScanScreen> {
               children: [
                 MobileScanner(
                   controller: _cameraController,
+                  errorBuilder: (context, error, child) {
+                    return _CameraErrorWidget(
+                      error: error,
+                      onRetry: () {
+                        setState(() {});
+                        _cameraController.start();
+                      },
+                    );
+                  },
                   onDetect: (capture) => _onDetect(capture, controller),
                 ),
                 _ScanOverlay(),
@@ -136,6 +173,89 @@ class _ScanScreenState extends State<ScanScreen> {
     );
   }
 }
+
+// ── Widget d'erreur caméra ────────────────────────────────────────────────────
+
+class _CameraErrorWidget extends StatelessWidget {
+  final MobileScannerException error;
+  final VoidCallback onRetry;
+
+  const _CameraErrorWidget({required this.error, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    final message = _message();
+    final isPermission = error.errorCode == MobileScannerErrorCode.permissionDenied;
+
+    return Container(
+      color: Colors.black,
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isPermission ? Icons.no_photography_outlined : Icons.camera_alt_outlined,
+              size: 72,
+              color: Colors.white38,
+            ),
+            const SizedBox(height: 24),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 15,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 32),
+            if (isPermission)
+              ElevatedButton.icon(
+                onPressed: () async {
+                  // Ouvrir les paramètres système
+                  // (nécessite permission_handler si souhaité — sinon message guide)
+                },
+                icon: const Icon(Icons.settings_outlined),
+                label: const Text('Ouvrir les paramètres'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF6B35),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              )
+            else
+              ElevatedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Réessayer'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF6B35),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _message() {
+    switch (error.errorCode) {
+      case MobileScannerErrorCode.permissionDenied:
+        return 'Permission caméra refusée.\n\nAllez dans :\nParamètres → Applications → VigiRoutes Terrain → Permissions → Caméra → Autoriser';
+      case MobileScannerErrorCode.unsupported:
+        return 'La caméra n\'est pas supportée\nsur cet appareil.';
+      default:
+        return 'Impossible d\'accéder à la caméra.\n\n${error.errorDetails?.message ?? 'Code : ${error.errorCode.name}'}\n\nRedémarrez l\'application et réessayez.';
+    }
+  }
+}
+
+// ── Overlay du cadre QR ───────────────────────────────────────────────────────
 
 class _ScanOverlay extends StatelessWidget {
   @override
@@ -200,87 +320,21 @@ class _CornerFrame extends StatelessWidget {
       height: size,
       child: Stack(
         children: [
-          // Top-left
-          Positioned(
-            top: 0,
-            left: 0,
-            child: Container(
-              width: cornerLen,
-              height: cornerWidth,
-              color: color,
-            ),
-          ),
-          Positioned(
-            top: 0,
-            left: 0,
-            child: Container(
-              width: cornerWidth,
-              height: cornerLen,
-              color: color,
-            ),
-          ),
-          // Top-right
-          Positioned(
-            top: 0,
-            right: 0,
-            child: Container(
-              width: cornerLen,
-              height: cornerWidth,
-              color: color,
-            ),
-          ),
-          Positioned(
-            top: 0,
-            right: 0,
-            child: Container(
-              width: cornerWidth,
-              height: cornerLen,
-              color: color,
-            ),
-          ),
-          // Bottom-left
-          Positioned(
-            bottom: 0,
-            left: 0,
-            child: Container(
-              width: cornerLen,
-              height: cornerWidth,
-              color: color,
-            ),
-          ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            child: Container(
-              width: cornerWidth,
-              height: cornerLen,
-              color: color,
-            ),
-          ),
-          // Bottom-right
-          Positioned(
-            bottom: 0,
-            right: 0,
-            child: Container(
-              width: cornerLen,
-              height: cornerWidth,
-              color: color,
-            ),
-          ),
-          Positioned(
-            bottom: 0,
-            right: 0,
-            child: Container(
-              width: cornerWidth,
-              height: cornerLen,
-              color: color,
-            ),
-          ),
+          Positioned(top: 0, left: 0, child: Container(width: cornerLen, height: cornerWidth, color: color)),
+          Positioned(top: 0, left: 0, child: Container(width: cornerWidth, height: cornerLen, color: color)),
+          Positioned(top: 0, right: 0, child: Container(width: cornerLen, height: cornerWidth, color: color)),
+          Positioned(top: 0, right: 0, child: Container(width: cornerWidth, height: cornerLen, color: color)),
+          Positioned(bottom: 0, left: 0, child: Container(width: cornerLen, height: cornerWidth, color: color)),
+          Positioned(bottom: 0, left: 0, child: Container(width: cornerWidth, height: cornerLen, color: color)),
+          Positioned(bottom: 0, right: 0, child: Container(width: cornerLen, height: cornerWidth, color: color)),
+          Positioned(bottom: 0, right: 0, child: Container(width: cornerWidth, height: cornerLen, color: color)),
         ],
       ),
     );
   }
 }
+
+// ── Bottom sheet succès ───────────────────────────────────────────────────────
 
 class _ScanSuccessSheet extends StatelessWidget {
   final TerrainBookingModel booking;
@@ -320,10 +374,7 @@ class _ScanSuccessSheet extends StatelessWidget {
                     children: [
                       Text(
                         'Véhicule identifié',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 17,
-                        ),
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
                       ),
                       Text(
                         'Notification envoyée au client ✓',
@@ -383,16 +434,10 @@ class _InfoRow extends StatelessWidget {
         children: [
           SizedBox(
             width: 140,
-            child: Text(
-              label,
-              style: TextStyle(color: Colors.grey[600], fontSize: 13),
-            ),
+            child: Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
           ),
           Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
-            ),
+            child: Text(value, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
           ),
         ],
       ),
