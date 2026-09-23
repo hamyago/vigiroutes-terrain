@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/terrain_models.dart';
 import 'scan_controller.dart';
@@ -12,30 +13,50 @@ class ScanScreen extends StatefulWidget {
 }
 
 class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
-  late final MobileScannerController _cameraController;
+  MobileScannerController? _cameraController;
   bool _bottomSheetShown = false;
+  bool _permissionChecked = false;
+  bool _permissionGranted = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _checkPermissionAndInit();
+  }
+
+  Future<void> _checkPermissionAndInit() async {
+    final status = await Permission.camera.request();
+    if (!mounted) return;
+    setState(() {
+      _permissionChecked = true;
+      _permissionGranted = status.isGranted;
+    });
+    if (status.isGranted) {
+      _initCamera();
+    }
+  }
+
+  void _initCamera() {
     _cameraController = MobileScannerController(
       detectionSpeed: DetectionSpeed.noDuplicates,
       facing: CameraFacing.back,
       torchEnabled: false,
     );
-    WidgetsBinding.instance.addObserver(this);
+    if (mounted) setState(() {});
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (!_cameraController.value.isInitialized) return;
+    final ctrl = _cameraController;
+    if (ctrl == null || !ctrl.value.isInitialized) return;
     switch (state) {
       case AppLifecycleState.resumed:
-        _cameraController.start();
+        ctrl.start();
         break;
       case AppLifecycleState.inactive:
       case AppLifecycleState.paused:
-        _cameraController.stop();
+        ctrl.stop();
         break;
       default:
         break;
@@ -45,7 +66,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _cameraController.dispose();
+    _cameraController?.dispose();
     super.dispose();
   }
 
@@ -53,8 +74,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     if (!controller.isScanning || controller.isLoading) return;
     final barcode = capture.barcodes.firstOrNull;
     if (barcode == null || barcode.rawValue == null) return;
-    final value = barcode.rawValue!;
-    _handleScan(value, controller);
+    _handleScan(barcode.rawValue!, controller);
   }
 
   Future<void> _handleScan(String value, ScanController controller) async {
@@ -115,60 +135,138 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
               foregroundColor: Colors.white,
               title: const Text('Scanner QR Code'),
               actions: [
-                IconButton(
-                  icon: const Icon(Icons.flash_on),
-                  onPressed: () => _cameraController.toggleTorch(),
-                ),
+                if (_cameraController != null)
+                  IconButton(
+                    icon: const Icon(Icons.flash_on),
+                    onPressed: () => _cameraController!.toggleTorch(),
+                  ),
               ],
             ),
-            body: Stack(
-              children: [
-                MobileScanner(
-                  controller: _cameraController,
-                  errorBuilder: (context, error, child) {
-                    return _CameraErrorWidget(
-                      error: error,
-                      onRetry: () {
-                        setState(() {});
-                        _cameraController.start();
-                      },
-                    );
-                  },
-                  onDetect: (capture) => _onDetect(capture, controller),
-                ),
-                _ScanOverlay(),
-                if (controller.isLoading)
-                  Container(
-                    color: Colors.black.withValues(alpha: 0.5),
-                    child: const Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          CircularProgressIndicator(color: Color(0xFFFF6B35)),
-                          SizedBox(height: 16),
-                          Text(
-                            'Vérification en cours...',
-                            style: TextStyle(color: Colors.white, fontSize: 16),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                Positioned(
-                  bottom: 40,
-                  left: 0,
-                  right: 0,
-                  child: const Center(
-                    child: Text(
-                      'Placez le QR code dans le cadre',
-                      style: TextStyle(color: Colors.white70, fontSize: 14),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            body: _buildBody(controller),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildBody(ScanController controller) {
+    // Pas encore vérifié la permission
+    if (!_permissionChecked) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFFFF6B35)),
+      );
+    }
+
+    // Permission refusée
+    if (!_permissionGranted) {
+      return _PermissionDeniedWidget(
+        onRetry: () async {
+          final status = await Permission.camera.request();
+          if (!mounted) return;
+          if (status.isGranted) {
+            setState(() {
+              _permissionGranted = true;
+            });
+            _initCamera();
+          } else if (status.isPermanentlyDenied) {
+            openAppSettings();
+          }
+        },
+      );
+    }
+
+    // Contrôleur pas encore prêt
+    if (_cameraController == null) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFFFF6B35)),
+      );
+    }
+
+    return Stack(
+      children: [
+        MobileScanner(
+          controller: _cameraController!,
+          errorBuilder: (context, error, child) {
+            return _CameraErrorWidget(
+              error: error,
+              onRetry: () {
+                setState(() {});
+                _cameraController?.start();
+              },
+            );
+          },
+          onDetect: (capture) => _onDetect(capture, controller),
+        ),
+        _ScanOverlay(),
+        if (controller.isLoading)
+          Container(
+            color: Colors.black.withValues(alpha: 0.5),
+            child: const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(color: Color(0xFFFF6B35)),
+                  SizedBox(height: 16),
+                  Text(
+                    'Vérification en cours...',
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        Positioned(
+          bottom: 40,
+          left: 0,
+          right: 0,
+          child: const Center(
+            child: Text(
+              'Placez le QR code dans le cadre',
+              style: TextStyle(color: Colors.white70, fontSize: 14),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Widget permission refusée ─────────────────────────────────────────────────
+
+class _PermissionDeniedWidget extends StatelessWidget {
+  final VoidCallback onRetry;
+  const _PermissionDeniedWidget({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.black,
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.no_photography_outlined, size: 72, color: Colors.white38),
+            const SizedBox(height: 24),
+            const Text(
+              'Permission caméra refusée.\n\nAllez dans :\nParamètres → Applications → VigiRoutes Terrain → Permissions → Caméra → Autoriser',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white70, fontSize: 15, height: 1.5),
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.settings_outlined),
+              label: const Text('Ouvrir les paramètres'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFF6B35),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -210,33 +308,17 @@ class _CameraErrorWidget extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 32),
-            if (isPermission)
-              ElevatedButton.icon(
-                onPressed: () async {
-                  // Ouvrir les paramètres système
-                  // (nécessite permission_handler si souhaité — sinon message guide)
-                },
-                icon: const Icon(Icons.settings_outlined),
-                label: const Text('Ouvrir les paramètres'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFF6B35),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-              )
-            else
-              ElevatedButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Réessayer'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFF6B35),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
+            ElevatedButton.icon(
+              onPressed: isPermission ? openAppSettings : onRetry,
+              icon: Icon(isPermission ? Icons.settings_outlined : Icons.refresh),
+              label: Text(isPermission ? 'Ouvrir les paramètres' : 'Réessayer'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFF6B35),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
+            ),
           ],
         ),
       ),
