@@ -67,4 +67,31 @@ class TerrainService {
       response.data['data'] as Map<String, dynamic>,
     );
   }
+
+  /// Retourne la liste des centres assignés à l'agent.
+  Future<List<Map<String, dynamic>>> getCenters() async {
+    final response = await _api.get('/terrain/centers');
+    final List data = response.data['data'] as List? ?? [];
+    return data.map((e) => e as Map<String, dynamic>).toList();
+  }
+
+  /// Met à jour les coordonnées GPS d'un centre CT.
+  /// [centerId] : UUID du centre à géolocaliser.
+  /// [latitude] / [longitude] : coordonnées GPS obtenues via Geolocator.
+  /// [address] : adresse lisible optionnelle (reverse geocoding).
+  Future<void> updateCenterGps({
+    required String centerId,
+    required double latitude,
+    required double longitude,
+    String? address,
+  }) async {
+    await _api.patch(
+      '/terrain/centers/$centerId/gps',
+      data: {
+        'latitude': latitude,
+        'longitude': longitude,
+        if (address != null) 'address': address,
+      },
+    );
+  }
 }

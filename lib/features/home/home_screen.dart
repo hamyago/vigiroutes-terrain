@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/terrain_models.dart';
 import '../../core/providers/auth_provider.dart';
+import '../../core/services/terrain_service.dart';
 import 'home_controller.dart';
 
 class HomeScreenWrapper extends StatelessWidget {
@@ -24,6 +26,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  bool _geolocating = false;
+
   @override
   void initState() {
     super.initState();
@@ -31,6 +35,150 @@ class _HomeScreenState extends State<HomeScreen> {
       context.read<HomeController>().loadBookings();
     });
   }
+
+  // ── Géolocalisation d'un centre ──────────────────────────────────────────────
+
+  Future<void> _geolocateCenter() async {
+    if (_geolocating) return;
+
+    // 1. Demander / vérifier les permissions
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      if (mounted) {
+        _showError('Permission de localisation refusée.\nActivez-la dans les paramètres de l\'application.');
+      }
+      return;
+    }
+
+    final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      if (mounted) {
+        _showError('Le service de localisation est désactivé.\nActivez-le dans les paramètres du téléphone.');
+      }
+      return;
+    }
+
+    setState(() => _geolocating = true);
+
+    try {
+      // 2. Récupérer les centres de l'agent
+      final centers = await TerrainService.instance.getCenters();
+
+      if (centers.isEmpty) {
+        if (mounted) _showError('Aucun centre CT assigné à votre compte.');
+        return;
+      }
+
+      // 3. Si plusieurs centres, demander lequel géolocaliser
+      Map<String, dynamic>? selectedCenter;
+      if (centers.length == 1) {
+        selectedCenter = centers.first;
+      } else {
+        if (!mounted) return;
+        selectedCenter = await _pickCenter(centers);
+        if (selectedCenter == null) return; // annulé
+      }
+
+      // 4. Obtenir la position GPS
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Obtention de la position GPS…'),
+            duration: Duration(seconds: 10),
+          ),
+        );
+      }
+
+      final Position position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 15),
+        ),
+      );
+
+      // 5. Envoyer au serveur
+      await TerrainService.instance.updateCenterGps(
+        centerId: selectedCenter['id'] as String,
+        latitude: position.latitude,
+        longitude: position.longitude,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '📍 ${selectedCenter['name']} géolocalisé avec succès.\n'
+              '${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}',
+            ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        _showError('Erreur de géolocalisation :\n${e.toString()}');
+      }
+    } finally {
+      if (mounted) setState(() => _geolocating = false);
+    }
+  }
+
+  Future<Map<String, dynamic>?> _pickCenter(List<Map<String, dynamic>> centers) async {
+    return showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 12),
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Quel centre géolocaliser ?',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          ...centers.map((c) => ListTile(
+                leading: const Icon(Icons.location_on_outlined, color: Color(0xFFFF6B35)),
+                title: Text(c['name']?.toString() ?? 'Centre sans nom'),
+                subtitle: c['address'] != null
+                    ? Text(c['address'].toString(), maxLines: 1, overflow: TextOverflow.ellipsis)
+                    : null,
+                onTap: () => Navigator.pop(ctx, c),
+              )),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 5),
+      ),
+    );
+  }
+
+  // ── Build ────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -61,6 +209,24 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
+          // Bouton géolocalisation centre
+          _geolocating
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  ),
+                )
+              : IconButton(
+                  icon: const Icon(Icons.my_location),
+                  tooltip: 'Géolocaliser ce centre',
+                  onPressed: _geolocateCenter,
+                ),
           IconButton(
             icon: const Icon(Icons.bar_chart),
             tooltip: 'Tableau de bord',
