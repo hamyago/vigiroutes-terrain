@@ -22,7 +22,6 @@
         android:label="vigiroutes_terrain"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/LaunchTheme">
 
