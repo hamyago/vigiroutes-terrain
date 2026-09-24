@@ -5,6 +5,21 @@ import 'package:provider/provider.dart';
 import '../../core/models/terrain_models.dart';
 import 'scan_controller.dart';
 
+// FIX : ScanScreenWrapper est un StatelessWidget qui possède le Provider.
+// L'ancien code plaçait ChangeNotifierProvider dans build() de _ScanScreenState,
+// ce qui recréait ScanController à chaque setState, réinitialisant les scans.
+class ScanScreenWrapper extends StatelessWidget {
+  const ScanScreenWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => ScanController(),
+      child: const ScanScreen(),
+    );
+  }
+}
+
 class ScanScreen extends StatefulWidget {
   const ScanScreen({super.key});
 
@@ -38,10 +53,13 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
   }
 
   void _initCamera() {
+    // FIX Samsung A14 / camera2 : formats limités à QR uniquement
+    // pour éviter le scan multi-format trop lent sur cet appareil.
     _cameraController = MobileScannerController(
       detectionSpeed: DetectionSpeed.noDuplicates,
       facing: CameraFacing.back,
       torchEnabled: false,
+      formats: const [BarcodeFormat.qrCode],
     );
     if (mounted) setState(() {});
   }
@@ -123,29 +141,23 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => ScanController(),
-      child: Builder(
-        builder: (context) {
-          final controller = context.watch<ScanController>();
-          return Scaffold(
-            backgroundColor: Colors.black,
-            appBar: AppBar(
-              backgroundColor: Colors.black,
-              foregroundColor: Colors.white,
-              title: const Text('Scanner QR Code'),
-              actions: [
-                if (_cameraController != null)
-                  IconButton(
-                    icon: const Icon(Icons.flash_on),
-                    onPressed: () => _cameraController!.toggleTorch(),
-                  ),
-              ],
+    // FIX : le Provider est maintenant dans ScanScreenWrapper, pas ici.
+    final controller = context.watch<ScanController>();
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: const Text('Scanner QR Code'),
+        actions: [
+          if (_cameraController != null)
+            IconButton(
+              icon: const Icon(Icons.flash_on),
+              onPressed: () => _cameraController!.toggleTorch(),
             ),
-            body: _buildBody(controller),
-          );
-        },
+        ],
       ),
+      body: _buildBody(controller),
     );
   }
 
@@ -330,7 +342,7 @@ class _CameraErrorWidget extends StatelessWidget {
       case MobileScannerErrorCode.permissionDenied:
         return 'Permission caméra refusée.\n\nAllez dans :\nParamètres → Applications → VigiRoutes Terrain → Permissions → Caméra → Autoriser';
       case MobileScannerErrorCode.unsupported:
-        return 'La caméra n\'est pas supportée\nsur cet appareil.';
+        return "La caméra n'est pas supportée\nsur cet appareil.";
       default:
         return 'Impossible d\'accéder à la caméra.\n\n${error.errorDetails?.message ?? 'Code : ${error.errorCode.name}'}\n\nRedémarrez l\'application et réessayez.';
     }

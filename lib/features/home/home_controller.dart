@@ -1,6 +1,8 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../../core/models/terrain_models.dart';
 import '../../core/services/terrain_service.dart';
+import '../booking/booking_detail_controller.dart';
 
 class HomeController extends ChangeNotifier {
   List<TerrainBookingModel> _bookings = [];
@@ -20,8 +22,10 @@ class HomeController extends ChangeNotifier {
     try {
       final list = await _service.getTodayBookings();
       _bookings = list;
-      // Populate in-memory cache for detail screens
       _bookings.sort((a, b) => a.slotTime.compareTo(b.slotTime));
+      // FIX : remplir le cache partagé pour que les écrans de détail
+      // n'aient pas à refaire un appel réseau.
+      BookingDetailController.populateCache(_bookings);
     } catch (e) {
       _error = _extractError(e);
     } finally {
@@ -40,7 +44,25 @@ class HomeController extends ChangeNotifier {
     }
   }
 
+  // FIX : utiliser DioException typé au lieu de string-matching sur e.toString().
   String _extractError(dynamic e) {
+    if (e is DioException) {
+      switch (e.type) {
+        case DioExceptionType.connectionTimeout:
+        case DioExceptionType.receiveTimeout:
+        case DioExceptionType.sendTimeout:
+          return 'Pas de connexion réseau';
+        case DioExceptionType.badResponse:
+          if (e.response?.statusCode == 401) {
+            return 'Session expirée. Veuillez vous reconnecter.';
+          }
+          return 'Erreur serveur (${e.response?.statusCode})';
+        case DioExceptionType.connectionError:
+          return 'Pas de connexion réseau';
+        default:
+          break;
+      }
+    }
     final msg = e.toString();
     if (msg.contains('401')) return 'Session expirée. Veuillez vous reconnecter.';
     if (msg.contains('SocketException') || msg.contains('connection')) {

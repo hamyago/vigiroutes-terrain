@@ -54,15 +54,19 @@ class DashboardScreen extends StatelessWidget {
                     ],
                   ),
                 )
-              : RefreshIndicator(
-                  color: primary,
-                  onRefresh: controller.loadStats,
-                  child: SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(16),
-                    child: _DashboardContent(stats: controller.stats!),
-                  ),
-                ),
+              // FIX : guard null avant d'utiliser stats! — pendant un retry,
+              // isLoading=true + stats==null + error==null → crash sans ce check.
+              : controller.stats == null
+                  ? const Center(child: CircularProgressIndicator(color: Color(0xFFFF6B35)))
+                  : RefreshIndicator(
+                      color: primary,
+                      onRefresh: controller.loadStats,
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.all(16),
+                        child: _DashboardContent(stats: controller.stats!),
+                      ),
+                    ),
     );
   }
 }
@@ -77,7 +81,7 @@ class _DashboardContent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Vue d\'ensemble',
+          "Vue d'ensemble",
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         const SizedBox(height: 12),
@@ -86,7 +90,7 @@ class _DashboardContent extends StatelessWidget {
             Expanded(
               flex: 2,
               child: _StatCard(
-                title: 'Aujourd\'hui',
+                title: "Aujourd'hui",
                 mainValue: stats.todayTotal.toString(),
                 mainLabel: 'total',
                 secondaryItems: [

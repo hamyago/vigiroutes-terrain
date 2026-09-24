@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/terrain_service.dart';
@@ -89,7 +90,25 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // FIX : utiliser DioException typé au lieu de string-matching sur e.toString().
   String _extractError(dynamic e) {
+    if (e is DioException) {
+      switch (e.type) {
+        case DioExceptionType.connectionTimeout:
+        case DioExceptionType.receiveTimeout:
+        case DioExceptionType.sendTimeout:
+        case DioExceptionType.connectionError:
+          return 'Impossible de se connecter au serveur';
+        case DioExceptionType.badResponse:
+          final code = e.response?.statusCode;
+          if (code == 401 || code == 403) {
+            return 'Email ou mot de passe incorrect';
+          }
+          return 'Erreur serveur ($code)';
+        default:
+          break;
+      }
+    }
     final msg = e.toString();
     if (msg.contains('401') || msg.contains('Unauthorized')) {
       return 'Email ou mot de passe incorrect';

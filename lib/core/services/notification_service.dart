@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -16,26 +17,37 @@ class TerrainNotificationService {
   TerrainNotificationService._();
   static final instance = TerrainNotificationService._();
 
-  final _localNotifications = FlutterLocalNotificationsPlugin();
+  // FIX #4 : utiliser l'instance globale initialisée dans main.dart, pas une
+  // instance locale jamais initialisée.
+  late FlutterLocalNotificationsPlugin _localNotifications;
   GlobalKey<NavigatorState>? _navigatorKey;
 
   // ── Initialisation ─────────────────────────────────────────────────────────
 
-  Future<void> init(GlobalKey<NavigatorState> navigatorKey) async {
+  Future<void> init(
+    GlobalKey<NavigatorState> navigatorKey,
+    FlutterLocalNotificationsPlugin localNotifications,
+  ) async {
     _navigatorKey = navigatorKey;
+    _localNotifications = localNotifications;
 
-    // Permissions FCM
-    await FirebaseMessaging.instance.requestPermission(
-      alert: true, sound: true, badge: true,
-    );
+    // FIX #3 : NE PAS awaiter requestPermission ici — cela bloque le démarrage
+    // sur iOS. On diffère après le premier frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await FirebaseMessaging.instance.requestPermission(
+        alert: true, sound: true, badge: true,
+      );
+    });
 
     // Tap sur notification → app en arrière-plan
     FirebaseMessaging.onMessageOpenedApp.listen(_handleTap);
 
     // Cold start depuis une notification
-    FirebaseMessaging.instance.getInitialMessage().then((message) {
-      if (message != null) _handleTap(message);
-    });
+    unawaited(
+      FirebaseMessaging.instance.getInitialMessage().then((message) {
+        if (message != null) _handleTap(message);
+      }),
+    );
 
     // Foreground : Android n'affiche pas les FCM automatiquement
     FirebaseMessaging.onMessage.listen(_handleForeground);
@@ -55,9 +67,7 @@ class TerrainNotificationService {
 
     // Snackbar pour les types urgents
     switch (type) {
-      case 'booking_confirmed':
-      case 'vehicle_at_center':
-      case 'transport_update':
+      case 'booking_confirmed' || 'vehicle_at_center' || 'transport_update':
         _showSnackbar(
           body,
           action: SnackBarAction(
@@ -68,8 +78,7 @@ class TerrainNotificationService {
             },
           ),
         );
-      case 'vt_reminder_7d':
-      case 'vt_expired':
+      case 'vt_reminder_7d' || 'vt_expired':
         _showSnackbar(body);
       default:
         break;
@@ -83,9 +92,7 @@ class TerrainNotificationService {
     final bookingId = message.data['booking_id'] as String?;
 
     switch (type) {
-      case 'booking_confirmed':
-      case 'vehicle_at_center':
-      case 'transport_update':
+      case 'booking_confirmed' || 'vehicle_at_center' || 'transport_update':
         if (bookingId != null) _navigate('/booking/$bookingId');
       default:
         _navigate('/home');
@@ -158,7 +165,7 @@ class TerrainNotificationService {
 
   String _bodyForType(String type) => switch (type) {
         'booking_confirmed' => 'Une nouvelle réservation a été confirmée.',
-        'vehicle_at_center' => 'Le véhicule du client est arrivé. Procédez à l\'inspection.',
+        'vehicle_at_center' => "Le véhicule du client est arrivé. Procédez à l'inspection.",
         'transport_update'  => 'Une mise à jour du transport est disponible.',
         'vt_reminder_7d'    => 'Rappel : contrôle technique dans 7 jours.',
         'vt_expired'        => 'Contrôle technique expiré — action requise.',

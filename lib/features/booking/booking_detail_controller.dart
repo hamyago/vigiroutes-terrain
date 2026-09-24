@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../../core/models/terrain_models.dart';
 import '../../core/services/terrain_service.dart';
@@ -92,7 +93,9 @@ class BookingDetailController extends ChangeNotifier {
         'pv_number': pvNumber,
       };
       await _service.submitReport(_booking!.id, reportData);
-      final updated = _booking!.copyWith(status: 'completed');
+      // FIX : utiliser la valeur `result` reçue du serveur/paramètre,
+      // pas le statut fictif 'completed' codé en dur.
+      final updated = _booking!.copyWith(status: result);
       _booking = updated;
       _cache[updated.id] = updated;
       _isLoading = false;
@@ -106,7 +109,24 @@ class BookingDetailController extends ChangeNotifier {
     }
   }
 
+  // FIX : utiliser DioException typé au lieu de string-matching sur e.toString().
   String _extractError(dynamic e) {
+    if (e is DioException) {
+      switch (e.type) {
+        case DioExceptionType.connectionTimeout:
+        case DioExceptionType.receiveTimeout:
+        case DioExceptionType.sendTimeout:
+        case DioExceptionType.connectionError:
+          return 'Pas de connexion réseau';
+        case DioExceptionType.badResponse:
+          final code = e.response?.statusCode;
+          if (code == 401) return 'Session expirée';
+          if (code == 422) return 'Données invalides. Vérifiez les champs.';
+          return 'Erreur serveur ($code)';
+        default:
+          break;
+      }
+    }
     final msg = e.toString();
     if (msg.contains('401')) return 'Session expirée';
     if (msg.contains('422')) return 'Données invalides. Vérifiez les champs.';

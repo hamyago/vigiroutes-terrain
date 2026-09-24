@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
@@ -49,7 +50,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (permission == LocationPermission.denied ||
         permission == LocationPermission.deniedForever) {
       if (mounted) {
-        _showError('Permission de localisation refusée.\nActivez-la dans les paramètres de l\'application.');
+        _showError("Permission de localisation refusée.\nActivez-la dans les paramètres de l'application.");
       }
       return;
     }
@@ -93,11 +94,15 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
 
+      // FIX : timeLimit a été supprimé de geolocator v10+.
+      // On utilise .timeout() sur le Future à la place.
       final Position position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 15),
         ),
+      ).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw TimeoutException('GPS timeout après 15s'),
       );
 
       // 5. Envoyer au serveur
@@ -317,7 +322,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Icon(Icons.calendar_today, size: 64, color: Colors.grey),
                 SizedBox(height: 16),
                 Text(
-                  'Aucune réservation aujourd\'hui',
+                  "Aucune réservation aujourd'hui",
                   style: TextStyle(fontSize: 16, color: Colors.grey),
                 ),
               ],
@@ -333,7 +338,7 @@ class _HomeScreenState extends State<HomeScreen> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: Text(
-            '${controller.bookings.length} réservation(s) aujourd\'hui',
+            "${controller.bookings.length} réservation(s) aujourd'hui",
             style: const TextStyle(
               fontSize: 13,
               color: Colors.grey,
@@ -427,15 +432,15 @@ class _StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color) = switch (status) {
-      'confirmed' => ('Confirmé', Colors.grey),
-      'arrived' => ('Au centre', Colors.blue),
-      'in_progress' => ('En cours', Colors.amber[700]!),
-      'favorable' => ('Favorable', Colors.green),
-      'defavorable' => ('Défavorable', Colors.red),
-      'contre_visite' => ('Contre-visite', Colors.orange),
-      'completed' => ('Terminé', Colors.green),
-      'cancelled' => ('Annulé', Colors.red),
-      _ => ('En attente', Colors.grey),
+      'confirmed'    => ('Confirmé', Colors.grey),
+      'arrived'      => ('Au centre', Colors.blue),
+      'in_progress'  => ('En cours', Colors.amber[700]!),
+      'favorable'    => ('Favorable', Colors.green),
+      'defavorable'  => ('Défavorable', Colors.red),
+      'contre_visite'=> ('Contre-visite', Colors.orange),
+      'completed'    => ('Terminé', Colors.green),
+      'cancelled'    => ('Annulé', Colors.red),
+      _              => ('En attente', Colors.grey),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

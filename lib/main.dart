@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:isolate';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -33,7 +34,11 @@ final FlutterLocalNotificationsPlugin _localNotifications =
 // Isolate séparé — affiche une notification locale pour les types importants.
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
+  // FIX : Firebase peut déjà être initialisé dans cet isolate ; on ignore
+  // l'exception DuplicateApp plutôt que de crasher.
+  try {
+    await Firebase.initializeApp();
+  } catch (_) {}
 
   final data = message.data;
   final type = data['type'] as String?;
@@ -93,7 +98,7 @@ String _titleForType(String type) => switch (type) {
 
 String _bodyForType(String type) => switch (type) {
       'booking_confirmed' => 'Une nouvelle réservation a été confirmée.',
-      'vehicle_at_center' => 'Le véhicule du client est arrivé. Procédez à l\'inspection.',
+      'vehicle_at_center' => "Le véhicule du client est arrivé. Procédez à l'inspection.",
       'transport_update'  => 'Une mise à jour du transport est disponible.',
       'vt_reminder_7d'    => 'Rappel : contrôle technique dans 7 jours.',
       'vt_expired'        => 'Contrôle technique expiré — action requise.',
@@ -130,12 +135,15 @@ void main() async {
     FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
     return true;
   };
-  Isolate.current.addErrorListener(RawReceivePort((pair) async {
+
+  // FIX : stocker le port pour éviter qu'il soit GC'd immédiatement.
+  final _errorPort = RawReceivePort((pair) async {
     final list = pair as List<dynamic>;
     await FirebaseCrashlytics.instance.recordError(
       list.first, list.last as StackTrace?, fatal: true,
     );
-  }).sendPort);
+  });
+  Isolate.current.addErrorListener(_errorPort.sendPort);
 
   // ── FCM background handler ───────────────────────────────────────────────
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
@@ -156,7 +164,8 @@ void main() async {
       ?.createNotificationChannel(_terrainChannel);
 
   // ── Service notifications foreground ────────────────────────────────────
-  await TerrainNotificationService.instance.init(_navigatorKey);
+  // FIX : passer l'instance déjà initialisée au service.
+  await TerrainNotificationService.instance.init(_navigatorKey, _localNotifications);
 
   runApp(const TerrainApp());
 }
@@ -183,7 +192,8 @@ class TerrainApp extends StatelessWidget {
         home: const _RootScreen(),
         routes: {
           '/home': (_) => const HomeScreenWrapper(),
-          '/scan': (_) => const ScanScreen(),
+          // FIX : utiliser ScanScreenWrapper (Provider en dehors du build).
+          '/scan': (_) => const ScanScreenWrapper(),
           '/dashboard': (_) => const DashboardScreenWrapper(),
         },
         onGenerateRoute: (settings) {
