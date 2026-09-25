@@ -14,7 +14,7 @@ class BookingDetailController extends ChangeNotifier {
 
   final TerrainService _service = TerrainService.instance;
 
-  // In-memory cache shared across controllers
+  // Cache partagé entre tous les controllers (même session).
   static final Map<String, TerrainBookingModel> _cache = {};
 
   static void populateCache(List<TerrainBookingModel> bookings) {
@@ -23,12 +23,20 @@ class BookingDetailController extends ChangeNotifier {
     }
   }
 
+  // Permet la mise à jour du cache depuis l'extérieur (ex: après scan).
+  static void updateCache(TerrainBookingModel booking) {
+    _cache[booking.id] = booking;
+  }
+
   Future<void> loadBooking(String id) async {
+    // 1. Cache hit → affichage immédiat, pas de loading.
     if (_cache.containsKey(id)) {
       _booking = _cache[id];
       notifyListeners();
       return;
     }
+
+    // 2. Cache miss → on charge la liste du jour.
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -38,8 +46,20 @@ class BookingDetailController extends ChangeNotifier {
         _cache[b.id] = b;
       }
       _booking = _cache[id];
+
+      // FIX #3 : Si le booking n'est pas dans les réservations du jour
+      // (notification tardive, booking d'hier), on essaie de le charger
+      // directement depuis l'API plutôt que d'afficher une erreur muette.
       if (_booking == null) {
-        _error = 'Réservation introuvable';
+        try {
+          // Cet endpoint est à créer côté backend : GET /terrain/bookings/{id}
+          final single = await _service.getBookingById(id);
+          _booking = single;
+          _cache[id] = single;
+        } catch (_) {
+          // Si l'endpoint n'existe pas encore, on affiche le message d'erreur clair.
+          _error = 'Réservation introuvable (hors planning du jour)';
+        }
       }
     } catch (e) {
       _error = _extractError(e);
@@ -93,8 +113,7 @@ class BookingDetailController extends ChangeNotifier {
         'pv_number': pvNumber,
       };
       await _service.submitReport(_booking!.id, reportData);
-      // FIX : utiliser la valeur `result` reçue du serveur/paramètre,
-      // pas le statut fictif 'completed' codé en dur.
+      // On met à jour avec le résultat réel (favorable / defavorable / contre_visite).
       final updated = _booking!.copyWith(status: result);
       _booking = updated;
       _cache[updated.id] = updated;
@@ -109,7 +128,7 @@ class BookingDetailController extends ChangeNotifier {
     }
   }
 
-  // FIX : utiliser DioException typé au lieu de string-matching sur e.toString().
+  // FIX : utiliser DioException typé.
   String _extractError(dynamic e) {
     if (e is DioException) {
       switch (e.type) {
@@ -122,6 +141,7 @@ class BookingDetailController extends ChangeNotifier {
           final code = e.response?.statusCode;
           if (code == 401) return 'Session expirée';
           if (code == 422) return 'Données invalides. Vérifiez les champs.';
+          if (code == 404) return 'Réservation introuvable';
           return 'Erreur serveur ($code)';
         default:
           break;

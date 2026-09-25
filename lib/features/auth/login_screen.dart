@@ -25,13 +25,13 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     final auth = context.read<AuthProvider>();
-    final success = await auth.login(
+    // FIX #6 : on NE fait plus Navigator.pushReplacementNamed('/home') après login.
+    // _RootScreen dans main.dart surveille AuthProvider et navigue automatiquement
+    // quand isAuthenticated passe à true. Double-push évité (deux HomeScreen en pile).
+    await auth.login(
       _emailController.text.trim(),
       _passwordController.text,
     );
-    if (success && mounted) {
-      Navigator.pushReplacementNamed(context, '/home');
-    }
   }
 
   @override
@@ -87,6 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     textInputAction: TextInputAction.next,
+                    autocorrect: false,
                     decoration: InputDecoration(
                       labelText: 'Adresse email',
                       prefixIcon: const Icon(Icons.email_outlined),

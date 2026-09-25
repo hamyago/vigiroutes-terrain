@@ -5,9 +5,7 @@ import 'package:provider/provider.dart';
 import '../../core/models/terrain_models.dart';
 import 'scan_controller.dart';
 
-// FIX : ScanScreenWrapper est un StatelessWidget qui possède le Provider.
-// L'ancien code plaçait ChangeNotifierProvider dans build() de _ScanScreenState,
-// ce qui recréait ScanController à chaque setState, réinitialisant les scans.
+// ScanScreenWrapper : possède le Provider, stable à travers les rebuilds.
 class ScanScreenWrapper extends StatelessWidget {
   const ScanScreenWrapper({super.key});
 
@@ -53,13 +51,17 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
   }
 
   void _initCamera() {
-    // FIX Samsung A14 / camera2 : formats limités à QR uniquement
-    // pour éviter le scan multi-format trop lent sur cet appareil.
+    // FIX #2 — QR Scanner :
+    // 1. On crée le contrôleur avec detectionSpeed.noDuplicates pour éviter
+    //    les doubles déclenchements sur le même QR.
+    // 2. formats limité à QR uniquement (plus rapide sur Samsung A14 / camera2).
+    // 3. autoStart: true garantit que la caméra démarre immédiatement à l'init.
     _cameraController = MobileScannerController(
       detectionSpeed: DetectionSpeed.noDuplicates,
       facing: CameraFacing.back,
       torchEnabled: false,
       formats: const [BarcodeFormat.qrCode],
+      // autoStart est true par défaut dans mobile_scanner 5.x
     );
     if (mounted) setState(() {});
   }
@@ -70,7 +72,12 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     if (ctrl == null || !ctrl.value.isInitialized) return;
     switch (state) {
       case AppLifecycleState.resumed:
-        ctrl.start();
+        // FIX #2 : relancer la caméra seulement si le contrôleur est initialisé
+        // ET que le scanner est actif (pas en cours de traitement d'un scan).
+        final scanCtrl = context.read<ScanController>();
+        if (scanCtrl.isScanning && !scanCtrl.isLoading) {
+          ctrl.start();
+        }
         break;
       case AppLifecycleState.inactive:
       case AppLifecycleState.paused:
@@ -89,15 +96,25 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
   }
 
   void _onDetect(BarcodeCapture capture, ScanController controller) {
+    // FIX #2 : double-guard — isScanning ET isLoading.
+    // Sans le check isLoading, le callback peut être appelé plusieurs fois
+    // pendant que processScan() est en cours (race condition réseau).
     if (!controller.isScanning || controller.isLoading) return;
     final barcode = capture.barcodes.firstOrNull;
     if (barcode == null || barcode.rawValue == null) return;
-    _handleScan(barcode.rawValue!, controller);
+    final rawValue = barcode.rawValue!.trim();
+    if (rawValue.isEmpty) return;
+    _handleScan(rawValue, controller);
   }
 
   Future<void> _handleScan(String value, ScanController controller) async {
+    // FIX #2 : on stoppe explicitement la caméra pendant le traitement
+    // pour éviter les callbacks multiples de mobile_scanner.
+    _cameraController?.stop();
+
     final success = await controller.processScan(value);
     if (!mounted) return;
+
     if (success && controller.scannedBooking != null && !_bottomSheetShown) {
       _bottomSheetShown = true;
       await _showSuccessSheet(controller.scannedBooking!);
@@ -107,10 +124,13 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
           SnackBar(
             content: Text(controller.error!),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
           ),
         );
+        // FIX #2 : reset du controller ET redémarrage explicite de la caméra.
         controller.reset();
         _bottomSheetShown = false;
+        _cameraController?.start();
       }
     }
   }
@@ -130,18 +150,22 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
           Navigator.pop(ctx);
           Navigator.pushNamed(context, '/booking/${booking.id}');
         },
+        onNewScan: () {
+          Navigator.pop(ctx);
+        },
       ),
     );
     if (mounted) {
       final controller = context.read<ScanController>();
       controller.reset();
       _bottomSheetShown = false;
+      // FIX #2 : relancer la caméra après fermeture du bottom sheet.
+      _cameraController?.start();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // FIX : le Provider est maintenant dans ScanScreenWrapper, pas ici.
     final controller = context.watch<ScanController>();
     return Scaffold(
       backgroundColor: Colors.black,
@@ -153,6 +177,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
           if (_cameraController != null)
             IconButton(
               icon: const Icon(Icons.flash_on),
+              tooltip: 'Torche',
               onPressed: () => _cameraController!.toggleTorch(),
             ),
         ],
@@ -187,7 +212,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
       );
     }
 
-    // Contrôleur pas encore prêt
+    // Contrôleur pas encore prêt (initCamera pas encore appelé)
     if (_cameraController == null) {
       return const Center(
         child: CircularProgressIndicator(color: Color(0xFFFF6B35)),
@@ -196,23 +221,29 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
 
     return Stack(
       children: [
+        // FIX #2 : MobileScanner reçoit toujours le contrôleur, même quand
+        // isScanning = false. C'est le contrôleur (stop/start) qui gère l'état
+        // actif/inactif de la caméra, pas la présence du widget.
         MobileScanner(
           controller: _cameraController!,
           errorBuilder: (context, error, child) {
             return _CameraErrorWidget(
               error: error,
               onRetry: () {
+                // FIX #2 : recréer le contrôleur en cas d'erreur grave.
+                _cameraController?.dispose();
+                _initCamera();
                 setState(() {});
-                _cameraController?.start();
               },
             );
           },
           onDetect: (capture) => _onDetect(capture, controller),
         ),
         _ScanOverlay(),
+        // Overlay de chargement pendant processScan()
         if (controller.isLoading)
           Container(
-            color: Colors.black.withValues(alpha: 0.5),
+            color: Colors.black.withValues(alpha: 0.6),
             child: const Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -220,24 +251,33 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                   CircularProgressIndicator(color: Color(0xFFFF6B35)),
                   SizedBox(height: 16),
                   Text(
-                    'Vérification en cours...',
+                    'Vérification en cours…',
                     style: TextStyle(color: Colors.white, fontSize: 16),
                   ),
                 ],
               ),
             ),
           ),
-        Positioned(
-          bottom: 40,
-          left: 0,
-          right: 0,
-          child: const Center(
-            child: Text(
-              'Placez le QR code dans le cadre',
-              style: TextStyle(color: Colors.white70, fontSize: 14),
+        // Instruction en bas de l'écran
+        if (!controller.isLoading)
+          Positioned(
+            bottom: 40,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text(
+                  'Placez le QR code dans le cadre',
+                  style: TextStyle(color: Colors.white, fontSize: 14),
+                ),
+              ),
             ),
           ),
-        ),
       ],
     );
   }
@@ -261,7 +301,7 @@ class _PermissionDeniedWidget extends StatelessWidget {
             const Icon(Icons.no_photography_outlined, size: 72, color: Colors.white38),
             const SizedBox(height: 24),
             const Text(
-              'Permission caméra refusée.\n\nAllez dans :\nParamètres → Applications → VigiRoutes Terrain → Permissions → Caméra → Autoriser',
+              'Permission caméra requise\n\nAllez dans :\nParamètres → Applications → VigiRoutes Terrain → Permissions → Caméra → Autoriser',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.white70, fontSize: 15, height: 1.5),
             ),
@@ -405,8 +445,8 @@ class _CornerFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const cornerLen = 24.0;
-    const cornerWidth = 3.0;
+    const cornerLen = 28.0;
+    const cornerWidth = 3.5;
     const color = Color(0xFFFF6B35);
 
     return SizedBox(
@@ -428,15 +468,17 @@ class _CornerFrame extends StatelessWidget {
   }
 }
 
-// ── Bottom sheet succès ───────────────────────────────────────────────────────
+// ── Bottom sheet succès après scan ───────────────────────────────────────────
 
 class _ScanSuccessSheet extends StatelessWidget {
   final TerrainBookingModel booking;
   final VoidCallback onViewDetails;
+  final VoidCallback onNewScan;
 
   const _ScanSuccessSheet({
     required this.booking,
     required this.onViewDetails,
+    required this.onNewScan,
   });
 
   @override
@@ -486,7 +528,8 @@ class _ScanSuccessSheet extends StatelessWidget {
             _InfoRow(label: 'Véhicule', value: '${booking.vehicleBrand} ${booking.vehicleModel}'),
             _InfoRow(label: 'Client', value: booking.clientName),
             _InfoRow(label: 'Heure de passage', value: booking.slotTime),
-            _InfoRow(label: 'Centre', value: booking.centerName ?? ''),
+            if (booking.centerName != null && booking.centerName!.isNotEmpty)
+              _InfoRow(label: 'Centre', value: booking.centerName!),
             const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
@@ -501,9 +544,24 @@ class _ScanSuccessSheet extends StatelessWidget {
                   ),
                 ),
                 child: const Text(
-                  'Voir les détails',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                  'Voir les détails & démarrer le contrôle',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                 ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: OutlinedButton(
+                onPressed: onNewScan,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.grey[700],
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text('Scanner un autre véhicule'),
               ),
             ),
             const SizedBox(height: 8),
