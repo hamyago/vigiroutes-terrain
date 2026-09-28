@@ -185,7 +185,12 @@ void main() async {
   // On passe l'instance déjà initialisée au service.
   await TerrainNotificationService.instance.init(_navigatorKey, _localNotifications);
 
-  runApp(const TerrainApp());
+  try {
+    runApp(const TerrainApp());
+  } catch (e, stackTrace) {
+    // En cas de crash, afficher l'erreur à l'écran
+    runApp(_StartupErrorApp(error: e.toString(), stackTrace: stackTrace.toString()));
+  }
 }
 
 // ── App de secours si Firebase échoue ────────────────────────────────────
@@ -289,5 +294,82 @@ class _RootScreen extends StatelessWidget {
     }
     if (auth.isAuthenticated) return const HomeScreenWrapper();
     return const LoginScreen();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// App de secours pour afficher l'erreur de démarrage
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _StartupErrorApp extends StatelessWidget {
+  final String error;
+  final String stackTrace;
+  const _StartupErrorApp({required this.error, required this.stackTrace});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        backgroundColor: const Color(0xFF1A1A2E),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.error, size: 48, color: Colors.red),
+                const SizedBox(height: 16),
+                const Text(
+                  'ERREUR DE DEMARRAGE',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Message :',
+                          style: TextStyle(color: Colors.white70, fontSize: 13),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          error,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Stack trace :',
+                          style: TextStyle(color: Colors.white70, fontSize: 13),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          stackTrace,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 10,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
