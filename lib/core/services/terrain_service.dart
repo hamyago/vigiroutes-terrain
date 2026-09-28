@@ -110,4 +110,41 @@ class TerrainService {
       },
     );
   }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // MISSIONS TRANSPORT CT (transporteurs accrédités)
+  // ──────────────────────────────────────────────────────────────────────────
+
+  Future<List<TransportMissionModel>> getTransportMissions() async {
+    final response = await _api.get('/ct/transport/missions');
+    final List data = response.data['data'] as List? ?? [];
+    return data
+        .map((e) => TransportMissionModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<TransportMissionModel> getTransportMissionById(String id) async {
+    final response = await _api.get('/ct/transport/missions/$id');
+    final data = response.data['data'] as Map<String, dynamic>;
+    return TransportMissionModel.fromJson(data);
+  }
+
+  Future<TransportMissionModel> markEnRoute(String id) async {
+    final response = await _api.post('/ct/transport/missions/$id/en-route', data: {});
+    final data = response.data['data'] as Map<String, dynamic>;
+    return TransportMissionModel.fromJson(data);
+  }
+
+  Future<TransportMissionModel> scanTransport(
+    String id, {
+    required String scanType,
+    required String token,
+  }) async {
+    final response = await _api.post(
+      '/ct/transport/missions/$id/scan',
+      data: {'scan_type': scanType, 'token': token},
+    );
+    final data = response.data['data'] as Map<String, dynamic>;
+    return TransportMissionModel.fromJson(data);
+  }
 }

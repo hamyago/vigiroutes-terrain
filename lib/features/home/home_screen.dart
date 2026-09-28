@@ -266,16 +266,54 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.pushNamed(context, '/scan'),
-        backgroundColor: primary,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.qr_code_scanner),
-        label: const Text(
-          'Scanner QR Code',
-          style: TextStyle(fontWeight: FontWeight.w600),
-        ),
-      ),
+      floatingActionButton: auth.isCtTransporter
+          // Transporteur CT → 2 boutons empilés
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                // Bouton "Mes missions transport"
+                FloatingActionButton.extended(
+                  heroTag: 'missions_fab',
+                  onPressed: () => Navigator.pushNamed(
+                    context,
+                    '/transport/missions',
+                  ),
+                  backgroundColor: const Color(0xFF1565C0),
+                  foregroundColor: Colors.white,
+                  icon: const Icon(Icons.local_shipping),
+                  label: const Text(
+                    'Mes missions',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Bouton "Scanner QR" (agent CT classique)
+                FloatingActionButton.extended(
+                  heroTag: 'scan_fab',
+                  onPressed: () => Navigator.pushNamed(context, '/scan'),
+                  backgroundColor: primary,
+                  foregroundColor: Colors.white,
+                  icon: const Icon(Icons.qr_code_scanner),
+                  label: const Text(
+                    'Scanner QR',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            )
+          // Agent CT classique → un seul bouton
+          : FloatingActionButton.extended(
+              heroTag: 'scan_fab',
+              onPressed: () => Navigator.pushNamed(context, '/scan'),
+              backgroundColor: primary,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.qr_code_scanner),
+              label: const Text(
+                'Scanner QR Code',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
       body: RefreshIndicator(
         color: primary,
         onRefresh: controller.refresh,

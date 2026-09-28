@@ -12,6 +12,7 @@ import 'core/services/notification_service.dart';
 import 'features/auth/login_screen.dart';
 import 'features/home/home_screen.dart';
 import 'features/scan/scan_screen.dart';
+import 'features/transport/transport_missions_screen.dart';
 import 'features/booking/booking_detail_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
 
@@ -254,6 +255,7 @@ class TerrainApp extends StatelessWidget {
           '/home': (_) => const HomeScreenWrapper(),
           '/scan': (_) => const ScanScreenWrapper(),
           '/dashboard': (_) => const DashboardScreenWrapper(),
+          '/transport/missions': (_) => const TransportMissionsScreenWrapper(),
         },
         onGenerateRoute: (settings) {
           if (settings.name?.startsWith('/booking/') == true) {

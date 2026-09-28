@@ -16,6 +16,18 @@ class AuthProvider extends ChangeNotifier {
   String? get agentName => _agentName;
   String? get centerName => _centerName;
 
+  // ── Rôle transporteur CT ───────────────────────────────────────────────
+  bool _isCtTransporter = false;
+  String? _ctTransporterType; // 'tow' | 'driver'
+
+  /// Vrai si l'agent connecté est aussi transporteur CT
+  /// (remorqueur ou chauffeur) — utilisé pour afficher les missions.
+  bool get isCtTransporter => _isCtTransporter;
+
+  /// Type de transporteur : 'tow' (remorqueur) ou 'driver' (chauffeur).
+  /// Null si l'agent n'est pas transporteur.
+  String? get ctTransporterType => _ctTransporterType;
+
   final TerrainService _service = TerrainService.instance;
 
   Future<void> checkAuth() async {
@@ -27,6 +39,8 @@ class AuthProvider extends ChangeNotifier {
       if (token != null && token.isNotEmpty) {
         _agentName = prefs.getString('agent_name');
         _centerName = prefs.getString('center_name');
+        _isCtTransporter = prefs.getBool('is_ct_transporter') ?? false;
+        _ctTransporterType = prefs.getString('ct_transporter_type');
         _isAuthenticated = true;
       } else {
         _isAuthenticated = false;
@@ -64,8 +78,16 @@ class AuthProvider extends ChangeNotifier {
           ctPartner?['name']?.toString() ??
           result['center_name']?.toString() ?? '';
 
+      // Détecter le rôle transporteur CT
+      _isCtTransporter = result['is_ct_transporter'] == true;
+      _ctTransporterType = result['ct_transporter_type']?.toString();
+
       await prefs.setString('agent_name', _agentName ?? '');
       await prefs.setString('center_name', _centerName ?? '');
+      await prefs.setBool('is_ct_transporter', _isCtTransporter);
+      if (_ctTransporterType != null) {
+        await prefs.setString('ct_transporter_type', _ctTransporterType!);
+      }
 
       _isAuthenticated = true;
       _isLoading = false;
@@ -84,9 +106,13 @@ class AuthProvider extends ChangeNotifier {
     await prefs.remove('sanctum_token');
     await prefs.remove('agent_name');
     await prefs.remove('center_name');
+    await prefs.remove('is_ct_transporter');
+    await prefs.remove('ct_transporter_type');
     _isAuthenticated = false;
     _agentName = null;
     _centerName = null;
+    _isCtTransporter = false;
+    _ctTransporterType = null;
     notifyListeners();
   }
 

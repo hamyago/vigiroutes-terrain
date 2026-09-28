@@ -204,3 +204,146 @@ class TerrainStatsModel {
     );
   }
 }
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TransportMissionModel — mission de transport CT (remorqueur ou chauffeur)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class TransportMissionModel {
+  final String id;
+  final String reference;
+  final String status;
+  final String transportMode;
+  final String? providerStatus;
+  final DateTime? slotStartsAt;
+
+  final String registrationNumber;
+  final String vehicleBrand;
+  final String vehicleModel;
+  final String? vehicleColor;
+
+  final String? clientName;
+  final String? clientPhone;
+  final double? clientLat;
+  final double? clientLng;
+  final String? clientAddress;
+
+  final String? centerName;
+  final String? centerAddress;
+
+  final DateTime? providerEnRouteAt;
+  final DateTime? providerPickedUpAt;
+  final DateTime? providerDeliveredAt;
+  final DateTime? providerReturnStartedAt;
+  final DateTime? providerReturnedAt;
+  final DateTime? providerCompletedAt;
+
+  const TransportMissionModel({
+    required this.id,
+    required this.reference,
+    required this.status,
+    required this.transportMode,
+    this.providerStatus,
+    this.slotStartsAt,
+    required this.registrationNumber,
+    required this.vehicleBrand,
+    required this.vehicleModel,
+    this.vehicleColor,
+    this.clientName,
+    this.clientPhone,
+    this.clientLat,
+    this.clientLng,
+    this.clientAddress,
+    this.centerName,
+    this.centerAddress,
+    this.providerEnRouteAt,
+    this.providerPickedUpAt,
+    this.providerDeliveredAt,
+    this.providerReturnStartedAt,
+    this.providerReturnedAt,
+    this.providerCompletedAt,
+  });
+
+  factory TransportMissionModel.fromJson(Map<String, dynamic> json) {
+    DateTime? parseDate(dynamic v) =>
+        v == null ? null : DateTime.tryParse(v.toString());
+
+    double? parseDouble(dynamic v) {
+      if (v == null) return null;
+      if (v is num) return v.toDouble();
+      return double.tryParse(v.toString());
+    }
+
+    return TransportMissionModel(
+      id:              json['id'] as String,
+      reference:       json['reference'] as String,
+      status:          json['status'] as String? ?? 'pending',
+      transportMode:   json['transport_mode'] as String? ?? 'tow',
+      providerStatus:  json['provider_status'] as String?,
+      slotStartsAt:    parseDate(json['slot_starts_at']),
+      registrationNumber: json['registration_number'] as String? ?? '',
+      vehicleBrand:    json['vehicle_brand'] as String? ?? '',
+      vehicleModel:    json['vehicle_model'] as String? ?? '',
+      vehicleColor:    json['vehicle_color'] as String?,
+      clientName:      json['client_name'] as String?,
+      clientPhone:     json['client_phone'] as String?,
+      clientLat:       parseDouble(json['client_lat']),
+      clientLng:       parseDouble(json['client_lng']),
+      clientAddress:   json['client_address'] as String?,
+      centerName:      json['center_name'] as String?,
+      centerAddress:   json['center_address'] as String?,
+      providerEnRouteAt:       parseDate(json['provider_en_route_at']),
+      providerPickedUpAt:      parseDate(json['provider_picked_up_at']),
+      providerDeliveredAt:     parseDate(json['provider_delivered_at']),
+      providerReturnStartedAt: parseDate(json['provider_return_started_at']),
+      providerReturnedAt:      parseDate(json['provider_returned_at']),
+      providerCompletedAt:     parseDate(json['provider_completed_at']),
+    );
+  }
+
+  String get slotTime {
+    if (slotStartsAt == null) return '--:--';
+    final h = slotStartsAt!.hour.toString().padLeft(2, '0');
+    final m = slotStartsAt!.minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
+
+  String get stepLabel {
+    switch (providerStatus) {
+      case 'pending':
+        return 'À démarrer';
+      case 'en_route_to_client':
+        return 'En route vers client';
+      case 'picked_up':
+        return 'Véhicule récupéré';
+      case 'delivered_to_center':
+        return 'Livré au centre';
+      case 'return_en_route':
+        return 'Retour en cours';
+      case 'delivered_to_client':
+        return 'Livré au client';
+      default:
+        return 'En attente';
+    }
+  }
+
+  String get nextActionLabel {
+    switch (providerStatus) {
+      case 'pending':
+        return 'Démarrer la mission';
+      case 'en_route_to_client':
+        return 'Scanner QR chez client';
+      case 'picked_up':
+        return 'Scanner QR au centre';
+      case 'delivered_to_center':
+        return 'Démarrer le retour';
+      case 'return_en_route':
+        return 'Scanner QR chez client (retour)';
+      case 'delivered_to_client':
+        return 'Terminé';
+      default:
+        return 'Continuer';
+    }
+  }
+}
