@@ -1,4 +1,4 @@
-package com.example.vigiroutes_terrain
+package com.vigiroutes.terrain
 
 import io.flutter.embedding.android.FlutterActivity
 
