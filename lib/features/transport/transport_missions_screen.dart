@@ -143,7 +143,7 @@ class _MissionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (statusColor, statusIcon) = _statusStyle(mission.providerStatus);
+    final (statusColor, statusIcon) = _statusStyle(mission.transporterStatus);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),

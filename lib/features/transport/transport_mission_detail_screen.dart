@@ -143,7 +143,7 @@ class _StatusCard extends StatelessWidget {
   }
 
   (Color, IconData) _style() {
-    switch (mission.providerStatus) {
+    switch (mission.transporterStatus) {
       case 'pending':
         return (Colors.grey, Icons.schedule);
       case 'en_route_to_client':
@@ -268,28 +268,28 @@ class _TimelineCard extends StatelessWidget {
       children: [
         _TimelineStep(
           label: 'En route',
-          done: mission.providerEnRouteAt != null,
-          time: _fmt(mission.providerEnRouteAt),
+          done: mission.transporterEnRouteAt != null,
+          time: _fmt(mission.transporterEnRouteAt),
         ),
         _TimelineStep(
           label: 'Récupéré chez client',
-          done: mission.providerPickedUpAt != null,
-          time: _fmt(mission.providerPickedUpAt),
+          done: mission.transporterPickedUpAt != null,
+          time: _fmt(mission.transporterPickedUpAt),
         ),
         _TimelineStep(
           label: 'Livré au centre',
-          done: mission.providerDeliveredAt != null,
-          time: _fmt(mission.providerDeliveredAt),
+          done: mission.transporterDeliveredAt != null,
+          time: _fmt(mission.transporterDeliveredAt),
         ),
         _TimelineStep(
           label: 'Retour démarré',
-          done: mission.providerReturnStartedAt != null,
-          time: _fmt(mission.providerReturnStartedAt),
+          done: mission.transporterReturnStartedAt != null,
+          time: _fmt(mission.transporterReturnStartedAt),
         ),
         _TimelineStep(
           label: 'Livré au client',
-          done: mission.providerReturnedAt != null,
-          time: _fmt(mission.providerReturnedAt),
+          done: mission.transporterReturnedAt != null,
+          time: _fmt(mission.transporterReturnedAt),
           last: true,
         ),
       ],
@@ -397,7 +397,7 @@ class _ActionButton extends StatelessWidget {
   }
 
   _Action? _actionFor(TransportMissionModel m) {
-    switch (m.providerStatus) {
+    switch (m.transporterStatus) {
       case 'pending':
         return const _Action(
           label: 'Démarrer la mission',

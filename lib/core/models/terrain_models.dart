@@ -215,7 +215,7 @@ class TransportMissionModel {
   final String reference;
   final String status;
   final String transportMode;
-  final String? providerStatus;
+  final String? transporterStatus;
   final DateTime? slotStartsAt;
 
   final String registrationNumber;
@@ -232,19 +232,19 @@ class TransportMissionModel {
   final String? centerName;
   final String? centerAddress;
 
-  final DateTime? providerEnRouteAt;
-  final DateTime? providerPickedUpAt;
-  final DateTime? providerDeliveredAt;
-  final DateTime? providerReturnStartedAt;
-  final DateTime? providerReturnedAt;
-  final DateTime? providerCompletedAt;
+  final DateTime? transporterEnRouteAt;
+  final DateTime? transporterPickedUpAt;
+  final DateTime? transporterDeliveredAt;
+  final DateTime? transporterReturnStartedAt;
+  final DateTime? transporterReturnedAt;
+  final DateTime? transporterCompletedAt;
 
   const TransportMissionModel({
     required this.id,
     required this.reference,
     required this.status,
     required this.transportMode,
-    this.providerStatus,
+    this.transporterStatus,
     this.slotStartsAt,
     required this.registrationNumber,
     required this.vehicleBrand,
@@ -257,12 +257,12 @@ class TransportMissionModel {
     this.clientAddress,
     this.centerName,
     this.centerAddress,
-    this.providerEnRouteAt,
-    this.providerPickedUpAt,
-    this.providerDeliveredAt,
-    this.providerReturnStartedAt,
-    this.providerReturnedAt,
-    this.providerCompletedAt,
+    this.transporterEnRouteAt,
+    this.transporterPickedUpAt,
+    this.transporterDeliveredAt,
+    this.transporterReturnStartedAt,
+    this.transporterReturnedAt,
+    this.transporterCompletedAt,
   });
 
   factory TransportMissionModel.fromJson(Map<String, dynamic> json) {
@@ -280,7 +280,7 @@ class TransportMissionModel {
       reference:       json['reference'] as String,
       status:          json['status'] as String? ?? 'pending',
       transportMode:   json['transport_mode'] as String? ?? 'tow',
-      providerStatus:  json['provider_status'] as String?,
+      transporterStatus:  json['transporter_status'] as String?,
       slotStartsAt:    parseDate(json['slot_starts_at']),
       registrationNumber: json['registration_number'] as String? ?? '',
       vehicleBrand:    json['vehicle_brand'] as String? ?? '',
@@ -293,12 +293,12 @@ class TransportMissionModel {
       clientAddress:   json['client_address'] as String?,
       centerName:      json['center_name'] as String?,
       centerAddress:   json['center_address'] as String?,
-      providerEnRouteAt:       parseDate(json['provider_en_route_at']),
-      providerPickedUpAt:      parseDate(json['provider_picked_up_at']),
-      providerDeliveredAt:     parseDate(json['provider_delivered_at']),
-      providerReturnStartedAt: parseDate(json['provider_return_started_at']),
-      providerReturnedAt:      parseDate(json['provider_returned_at']),
-      providerCompletedAt:     parseDate(json['provider_completed_at']),
+      transporterEnRouteAt:       parseDate(json['transporter_en_route_at']),
+      transporterPickedUpAt:      parseDate(json['transporter_picked_up_at']),
+      transporterDeliveredAt:     parseDate(json['transporter_delivered_at']),
+      transporterReturnStartedAt: parseDate(json['transporter_return_started_at']),
+      transporterReturnedAt:      parseDate(json['transporter_returned_at']),
+      transporterCompletedAt:     parseDate(json['transporter_completed_at']),
     );
   }
 
@@ -310,7 +310,7 @@ class TransportMissionModel {
   }
 
   String get stepLabel {
-    switch (providerStatus) {
+    switch (transporterStatus) {
       case 'pending':
         return 'À démarrer';
       case 'en_route_to_client':
@@ -329,7 +329,7 @@ class TransportMissionModel {
   }
 
   String get nextActionLabel {
-    switch (providerStatus) {
+    switch (transporterStatus) {
       case 'pending':
         return 'Démarrer la mission';
       case 'en_route_to_client':
