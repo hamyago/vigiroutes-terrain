@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 // lib/features/transport/transport_scan_screen.dart
 // ─────────────────────────────────────────────────────────────────────────────
 // Écran de scan QR pour les missions transport (4 étapes).
@@ -95,6 +96,10 @@ class _TransportScanScreenState extends State<TransportScanScreen>
     setState(() {});
 
     try {
+      debugPrint('[Scan] Token scanné (longueur=${token.length}) : ${token.substring(0, token.length > 50 ? 50 : token.length)}...');
+      debugPrint('[Scan] Mission ID : ${widget.missionId}');
+      debugPrint('[Scan] Scan type : ${widget.scanType}');
+
       await TerrainService.instance.scanTransport(
         widget.missionId,
         scanType: widget.scanType,
