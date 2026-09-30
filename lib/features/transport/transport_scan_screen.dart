@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 // lib/features/transport/transport_scan_screen.dart
 // ─────────────────────────────────────────────────────────────────────────────
@@ -110,11 +111,37 @@ class _TransportScanScreenState extends State<TransportScanScreen>
     } catch (e) {
       if (!mounted) return;
       setState(() => _isProcessing = false);
+
+      // Extraire le message d'erreur le plus clair possible
+      String message = 'Erreur lors du scan. Réessayez.';
+
+      if (e is DioException) {
+        final data = e.response?.data;
+        if (data is Map) {
+          final backendMsg = data['message'] ?? data['error'];
+          if (backendMsg != null && backendMsg.toString().trim().isNotEmpty) {
+            message = backendMsg.toString();
+          }
+        } else if (e.response?.statusCode == 422) {
+          message = 'QR code refusé. Vérifiez le véhicule scanné.';
+        } else if (e.response?.statusCode == 404) {
+          message = 'Mission introuvable. Actualisez la liste.';
+        } else if (e.response?.statusCode == 500) {
+          message = 'Problème technique côté serveur. Contactez le support.';
+        } else if (e.type == DioExceptionType.connectionTimeout ||
+                   e.type == DioExceptionType.receiveTimeout ||
+                   e.type == DioExceptionType.connectionError) {
+          message = 'Pas de connexion réseau. Vérifiez votre connexion.';
+        }
+      } else {
+        message = 'Erreur : ${e.toString()}';
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Erreur : $e'),
+          content: Text(message),
           backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
+          duration: const Duration(seconds: 4),
         ),
       );
       _cameraController?.start();
