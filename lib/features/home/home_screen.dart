@@ -42,7 +42,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _geolocateCenter() async {
     if (_geolocating) return;
 
-    // 1. Demander / vérifier les permissions
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
@@ -66,7 +65,6 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _geolocating = true);
 
     try {
-      // 2. Récupérer les centres de l'agent
       final centers = await TerrainService.instance.getCenters();
 
       if (centers.isEmpty) {
@@ -74,17 +72,15 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
 
-      // 3. Si plusieurs centres, demander lequel géolocaliser
       Map<String, dynamic>? selectedCenter;
       if (centers.length == 1) {
         selectedCenter = centers.first;
       } else {
         if (!mounted) return;
         selectedCenter = await _pickCenter(centers);
-        if (selectedCenter == null) return; // annulé
+        if (selectedCenter == null) return;
       }
 
-      // 4. Obtenir la position GPS
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -94,8 +90,6 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
 
-      // FIX : timeLimit a été supprimé de geolocator v10+.
-      // On utilise .timeout() sur le Future à la place.
       final Position position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
@@ -105,7 +99,6 @@ class _HomeScreenState extends State<HomeScreen> {
         onTimeout: () => throw TimeoutException('GPS timeout après 15s'),
       );
 
-      // 5. Envoyer au serveur
       await TerrainService.instance.updateCenterGps(
         centerId: selectedCenter['id'] as String,
         latitude: position.latitude,
@@ -214,7 +207,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
-          // Bouton géolocalisation centre
           _geolocating
               ? const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 12),
@@ -267,12 +259,10 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       floatingActionButton: auth.isCtTransporter
-          // Transporteur CT → 2 boutons empilés
           ? Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                // Bouton "Mes missions transport"
                 FloatingActionButton.extended(
                   heroTag: 'missions_fab',
                   onPressed: () => Navigator.pushNamed(
@@ -288,7 +278,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                // Bouton "Scanner QR" (agent CT classique)
                 FloatingActionButton.extended(
                   heroTag: 'scan_fab',
                   onPressed: () => Navigator.pushNamed(context, '/scan'),
@@ -302,7 +291,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             )
-          // Agent CT classique → un seul bouton
           : FloatingActionButton.extended(
               heroTag: 'scan_fab',
               onPressed: () => Navigator.pushNamed(context, '/scan'),
@@ -469,16 +457,21 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // ⚠️ Statuts alignés sur le backend (fix 2026-10-03) :
+    //   - 'vehicle_at_center'   remplace 'arrived'
+    //   - 'inspection_ongoing'  remplace 'in_progress'
+    //   - 'completed'           remplace 'favorable' / 'defavorable' / 'contre_visite'
+    //     (le résultat est dans `vt_result`, plus dans `status`)
     final (label, color) = switch (status) {
-      'confirmed'    => ('Confirmé', Colors.grey),
-      'arrived'      => ('Au centre', Colors.blue),
-      'in_progress'  => ('En cours', Colors.amber[700]!),
-      'favorable'    => ('Favorable', Colors.green),
-      'defavorable'  => ('Défavorable', Colors.red),
-      'contre_visite'=> ('Contre-visite', Colors.orange),
-      'completed'    => ('Terminé', Colors.green),
-      'cancelled'    => ('Annulé', Colors.red),
-      _              => ('En attente', Colors.grey),
+      'pending_payment'   => ('Paiement', Colors.orange),
+      'confirmed'         => ('Confirmé', Colors.grey),
+      'vehicle_in_transit'=> ('En route', Colors.purple),
+      'vehicle_at_center' => ('Au centre', Colors.blue),
+      'inspection_ongoing'=> ('En cours', Colors.amber[700]!),
+      'completed'         => ('Terminé', Colors.green),
+      'cancelled'         => ('Annulé', Colors.red),
+      'no_show'           => ('Non présenté', Colors.grey),
+      _                   => ('En attente', Colors.grey),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

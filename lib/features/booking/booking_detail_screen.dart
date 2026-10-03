@@ -185,16 +185,20 @@ class _StatusTimeline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // ⚠️ Statuts backend (fix 2026-10-03) :
+    //   - 'arrived'      → 'vehicle_at_center'
+    //   - 'in_progress'  → 'inspection_ongoing'
+    //   - 'completed'    → terminé (résultat dans vt_result, pas ici)
     final steps = [
-      ('Arrivé', 'arrived', Icons.where_to_vote),
-      ('Contrôle', 'in_progress', Icons.build),
+      ('Au centre', 'vehicle_at_center', Icons.where_to_vote),
+      ('Contrôle', 'inspection_ongoing', Icons.build),
       ('Terminé', 'completed', Icons.check_circle),
     ];
 
     final currentIndex = switch (status) {
-      'arrived' => 0,
-      'in_progress' => 1,
-      'favorable' || 'defavorable' || 'contre_visite' || 'completed' => 2,
+      'vehicle_at_center'  => 0,
+      'inspection_ongoing' => 1,
+      'completed'          => 2,
       _ => -1,
     };
 
@@ -275,7 +279,8 @@ class _ActionSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (booking.status == 'arrived') {
+    // ── Statut : véhicule au centre → bouton "Démarrer le contrôle"
+    if (booking.status == 'vehicle_at_center') {
       return SizedBox(
         width: double.infinity,
         height: 52,
@@ -289,6 +294,13 @@ class _ActionSection extends StatelessWidget {
                       const SnackBar(
                         content: Text('Contrôle démarré'),
                         backgroundColor: Color(0xFFFF6B35),
+                      ),
+                    );
+                  } else if (context.mounted && controller.error != null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(controller.error!),
+                        backgroundColor: Colors.red,
                       ),
                     );
                   }
@@ -318,7 +330,8 @@ class _ActionSection extends StatelessWidget {
       );
     }
 
-    if (booking.status == 'in_progress') {
+    // ── Statut : contrôle en cours → bouton "Finaliser"
+    if (booking.status == 'inspection_ongoing') {
       return SizedBox(
         width: double.infinity,
         height: 52,
@@ -351,6 +364,7 @@ class _ActionSection extends StatelessWidget {
       );
     }
 
+    // ── Statut : terminé
     if (booking.status == 'completed') {
       return Card(
         elevation: 1,
@@ -361,9 +375,11 @@ class _ActionSection extends StatelessWidget {
             children: [
               const Icon(Icons.check_circle, color: Colors.green, size: 28),
               const SizedBox(width: 12),
-              const Text(
-                'Contrôle terminé',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              const Expanded(
+                child: Text(
+                  'Contrôle terminé',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
               ),
             ],
           ),
@@ -371,6 +387,7 @@ class _ActionSection extends StatelessWidget {
       );
     }
 
+    // ── Statut : annulé
     if (booking.status == 'cancelled') {
       return Card(
         color: Colors.red[50],
@@ -396,24 +413,32 @@ class _ActionSection extends StatelessWidget {
       );
     }
 
-    return Card(
-      elevation: 0,
-      color: Colors.grey[100],
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: const Padding(
-        padding: EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Icon(Icons.hourglass_empty, color: Colors.grey, size: 24),
-            SizedBox(width: 12),
-            Text(
-              'En attente d\'arrivée du véhicule',
-              style: TextStyle(color: Colors.grey, fontSize: 14),
-            ),
-          ],
+    // ── Statut : pas encore arrivé (confirmé, en route, etc.)
+    if (booking.status == 'confirmed' || booking.status == 'vehicle_in_transit') {
+      return Card(
+        elevation: 0,
+        color: Colors.grey[100],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: const Padding(
+          padding: EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Icon(Icons.hourglass_empty, color: Colors.grey, size: 24),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  "En attente d'arrivée du véhicule",
+                  style: TextStyle(color: Colors.grey, fontSize: 14),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    }
+
+    // ── Fallback
+    return const SizedBox.shrink();
   }
 
   void _showReportSheet(BuildContext context) {
@@ -533,7 +558,7 @@ class _ReportBottomSheetState extends State<_ReportBottomSheet> {
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: _result,
+                initialValue: _result,
                 decoration: InputDecoration(
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),

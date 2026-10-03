@@ -59,24 +59,31 @@ class TerrainBookingModel {
     return '$h:$m';
   }
 
+  /// Libellé lisible du statut.
+  ///
+  /// ⚠️ IMPORTANT : les statuts backend ont changé (fix 2026-10-03) :
+  ///   - 'arrived'      → 'vehicle_at_center'
+  ///   - 'in_progress'  → 'inspection_ongoing'
+  /// Les statuts 'favorable' / 'defavorable' / 'contre_visite' ne sont PLUS
+  /// stockés dans `status` mais dans `vt_result` (status = 'completed').
   String get statusLabel {
     switch (status) {
-      case 'pending':
-        return 'En attente';
+      case 'pending_payment':
+        return 'Paiement en attente';
       case 'confirmed':
         return 'Confirmée';
-      case 'arrived':
-        return 'Arrivé';
-      case 'in_progress':
-        return 'En cours';
-      case 'favorable':
-        return 'Favorable';
-      case 'defavorable':
-        return 'Défavorable';
-      case 'contre_visite':
-        return 'Contre-visite';
+      case 'vehicle_in_transit':
+        return 'En route';
+      case 'vehicle_at_center':
+        return 'Au centre';
+      case 'inspection_ongoing':
+        return 'Contrôle en cours';
+      case 'completed':
+        return 'Terminé';
       case 'cancelled':
         return 'Annulée';
+      case 'no_show':
+        return 'Non présenté';
       default:
         return status;
     }
@@ -204,7 +211,6 @@ class TerrainStatsModel {
     );
   }
 }
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TransportMissionModel — mission de transport CT (remorqueur ou chauffeur)

@@ -1,6 +1,6 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../../core/models/terrain_models.dart';
+import '../../core/services/api_error_helper.dart';
 import '../../core/services/terrain_service.dart';
 
 class ScanController extends ChangeNotifier {
@@ -24,7 +24,7 @@ class ScanController extends ChangeNotifier {
     if (_isLoading) return false;
     _isLoading = true;
     _error = null;
-    _isScanning = false; // pause le scanner pendant l'appel réseau
+    _isScanning = false;
     notifyListeners();
     try {
       final booking = await _service.scanQr(qrToken);
@@ -33,10 +33,8 @@ class ScanController extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      _error = _extractError(e);
+      _error = extractApiError(e, fallback: 'Erreur lors du scan. Réessayez.');
       _isLoading = false;
-      // FIX #2 : après une erreur, on remet isScanning = true MAIS
-      // le MobileScannerController doit aussi être relancé (géré dans scan_screen.dart).
       _isScanning = true;
       notifyListeners();
       return false;
@@ -50,34 +48,5 @@ class ScanController extends ChangeNotifier {
     _error = null;
     _scannedBooking = null;
     notifyListeners();
-  }
-
-  // FIX #2 : utiliser DioException typé pour avoir des messages précis.
-  String _extractError(dynamic e) {
-    if (e is DioException) {
-      switch (e.type) {
-        case DioExceptionType.badResponse:
-          final code = e.response?.statusCode;
-          if (code == 404) return 'QR code non reconnu ou réservation introuvable';
-          if (code == 409) return 'Ce véhicule a déjà été scanné';
-          if (code == 401 || code == 403) return 'Session expirée';
-          return 'Erreur serveur ($code)';
-        case DioExceptionType.connectionTimeout:
-        case DioExceptionType.receiveTimeout:
-        case DioExceptionType.sendTimeout:
-        case DioExceptionType.connectionError:
-          return 'Pas de connexion réseau';
-        default:
-          break;
-      }
-    }
-    final msg = e.toString();
-    if (msg.contains('404')) return 'QR code non reconnu ou réservation introuvable';
-    if (msg.contains('409')) return 'Ce véhicule a déjà été scanné';
-    if (msg.contains('401') || msg.contains('403')) return 'Session expirée';
-    if (msg.contains('SocketException') || msg.contains('connection')) {
-      return 'Pas de connexion réseau';
-    }
-    return 'Erreur lors du scan. Réessayez.';
   }
 }
