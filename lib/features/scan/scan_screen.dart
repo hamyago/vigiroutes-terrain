@@ -4,7 +4,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/terrain_models.dart';
 import 'scan_controller.dart';
-
+import '../../core/services/snackbar_helper.dart';
 // ScanScreenWrapper : possède le Provider, stable à travers les rebuilds.
 class ScanScreenWrapper extends StatelessWidget {
   const ScanScreenWrapper({super.key});
@@ -120,12 +120,11 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
       await _showSuccessSheet(controller.scannedBooking!);
     } else if (!success && controller.error != null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(controller.error!),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
+        showAppSnackBar(
+          context,
+          controller.error!,
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
         );
         // FIX #2 : reset du controller ET redémarrage explicite de la caméra.
         controller.reset();

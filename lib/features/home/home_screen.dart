@@ -6,7 +6,7 @@ import '../../core/models/terrain_models.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/services/terrain_service.dart';
 import 'home_controller.dart';
-
+import '../../core/services/snackbar_helper.dart';
 class HomeScreenWrapper extends StatelessWidget {
   const HomeScreenWrapper({super.key});
 
@@ -82,11 +82,10 @@ class _HomeScreenState extends State<HomeScreen> {
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Obtention de la position GPS…'),
-            duration: Duration(seconds: 10),
-          ),
+        showAppSnackBar(
+          context,
+          'Obtention de la position GPS…',
+          duration: const Duration(seconds: 10),
         );
       }
 
@@ -106,21 +105,16 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '📍 ${selectedCenter['name']} géolocalisé avec succès.\n'
-              '${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}',
-            ),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 4),
-          ),
+        showAppSnackBar(
+          context,
+          '📍 ${selectedCenter['name']} géolocalisé avec succès.\n'
+          '${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}',
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 4),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         _showError('Erreur de géolocalisation :\n${e.toString()}');
       }
     } finally {
@@ -167,12 +161,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-        duration: const Duration(seconds: 5),
-      ),
+    showAppSnackBar(
+      context,
+      message,
+      backgroundColor: Colors.red,
+      duration: const Duration(seconds: 5),
     );
   }
 

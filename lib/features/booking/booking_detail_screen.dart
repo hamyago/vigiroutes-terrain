@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/terrain_models.dart';
+import '../../core/services/snackbar_helper.dart';
 import 'booking_detail_controller.dart';
 
 class BookingDetailScreenWrapper extends StatelessWidget {
@@ -185,10 +186,6 @@ class _StatusTimeline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ⚠️ Statuts backend (fix 2026-10-03) :
-    //   - 'arrived'      → 'vehicle_at_center'
-    //   - 'in_progress'  → 'inspection_ongoing'
-    //   - 'completed'    → terminé (résultat dans vt_result, pas ici)
     final steps = [
       ('Au centre', 'vehicle_at_center', Icons.where_to_vote),
       ('Contrôle', 'inspection_ongoing', Icons.build),
@@ -279,7 +276,6 @@ class _ActionSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ── Statut : véhicule au centre → bouton "Démarrer le contrôle"
     if (booking.status == 'vehicle_at_center') {
       return SizedBox(
         width: double.infinity,
@@ -289,19 +285,19 @@ class _ActionSection extends StatelessWidget {
               ? null
               : () async {
                   final ok = await controller.startInspection();
-                  if (ok && context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Contrôle démarré'),
-                        backgroundColor: Color(0xFFFF6B35),
-                      ),
+                  if (!context.mounted) return;
+                  if (ok) {
+                    showAppSnackBar(
+                      context,
+                      'Contrôle démarré',
+                      backgroundColor: const Color(0xFFFF6B35),
                     );
-                  } else if (context.mounted && controller.error != null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(controller.error!),
-                        backgroundColor: Colors.red,
-                      ),
+                  } else if (controller.error != null) {
+                    showAppSnackBar(
+                      context,
+                      controller.error!,
+                      backgroundColor: Colors.red,
+                      duration: const Duration(seconds: 4),
                     );
                   }
                 },
@@ -330,7 +326,6 @@ class _ActionSection extends StatelessWidget {
       );
     }
 
-    // ── Statut : contrôle en cours → bouton "Finaliser"
     if (booking.status == 'inspection_ongoing') {
       return SizedBox(
         width: double.infinity,
@@ -364,7 +359,6 @@ class _ActionSection extends StatelessWidget {
       );
     }
 
-    // ── Statut : terminé
     if (booking.status == 'completed') {
       return Card(
         elevation: 1,
@@ -387,7 +381,6 @@ class _ActionSection extends StatelessWidget {
       );
     }
 
-    // ── Statut : annulé
     if (booking.status == 'cancelled') {
       return Card(
         color: Colors.red[50],
@@ -413,7 +406,6 @@ class _ActionSection extends StatelessWidget {
       );
     }
 
-    // ── Statut : pas encore arrivé (confirmé, en route, etc.)
     if (booking.status == 'confirmed' || booking.status == 'vehicle_in_transit') {
       return Card(
         elevation: 0,
@@ -437,7 +429,6 @@ class _ActionSection extends StatelessWidget {
       );
     }
 
-    // ── Fallback
     return const SizedBox.shrink();
   }
 
@@ -452,11 +443,10 @@ class _ActionSection extends StatelessWidget {
         controller: controller,
         onSuccess: () {
           Navigator.pop(ctx);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Rapport soumis — Notification envoyée'),
-              backgroundColor: Colors.green,
-            ),
+          showAppSnackBar(
+            context,
+            'Rapport soumis — Notification envoyée',
+            backgroundColor: Colors.green,
           );
         },
       ),
@@ -490,6 +480,46 @@ class _ReportBottomSheetState extends State<_ReportBottomSheet> {
     _nextVtDateCtrl.dispose();
     _pvNumberCtrl.dispose();
     super.dispose();
+  }
+
+  // ── Sélection de la date via date picker FR ────────────────────────────
+  Future<void> _pickNextVtDate() async {
+    final now = DateTime.now();
+    final initial = _nextVtDateCtrl.text.isNotEmpty
+        ? DateTime.tryParse(_nextVtDateCtrl.text) ?? now.add(const Duration(days: 365))
+        : now.add(const Duration(days: 365));
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365 * 5)),
+      locale: const Locale('fr', 'FR'),
+      helpText: 'Date du prochain contrôle technique',
+      cancelText: 'Annuler',
+      confirmText: 'Valider',
+      fieldLabelText: 'Date (JJ/MM/AAAA)',
+      fieldHintText: 'JJ/MM/AAAA',
+    );
+
+    if (picked == null) return;
+    // Format ISO : YYYY-MM-DD (attendu par le backend)
+    final iso = '${picked.year.toString().padLeft(4, '0')}-'
+        '${picked.month.toString().padLeft(2, '0')}-'
+        '${picked.day.toString().padLeft(2, '0')}';
+    _nextVtDateCtrl.text = iso;
+    setState(() {}); // refresh l'affichage
+  }
+
+  // Format FR pour l'affichage : JJ/MM/AAAA
+  String get _formattedNextVtDate {
+    final raw = _nextVtDateCtrl.text.trim();
+    if (raw.isEmpty) return '';
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return raw;
+    return '${parsed.day.toString().padLeft(2, '0')}/'
+        '${parsed.month.toString().padLeft(2, '0')}/'
+        '${parsed.year}';
   }
 
   Future<void> _submit() async {
@@ -612,27 +642,48 @@ class _ReportBottomSheetState extends State<_ReportBottomSheet> {
               ],
               if (_result == 'favorable') ...[
                 const Text(
-                  'Date prochaine VT (YYYY-MM-DD)',
+                  'Date prochaine VT',
                   style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
-                  controller: _nextVtDateCtrl,
-                  keyboardType: TextInputType.datetime,
-                  decoration: InputDecoration(
-                    hintText: 'ex: 2027-09-18',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
+                // ── DATE PICKER (remplace le TextFormField) ──────────────
+                InkWell(
+                  onTap: _isSubmitting ? null : _pickNextVtDate,
+                  borderRadius: BorderRadius.circular(10),
+                  child: InputDecorator(
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      suffixIcon: const Icon(Icons.calendar_today,
+                          color: Color(0xFFFF6B35)),
+                      hintText: 'Sélectionner une date',
+                    ),
+                    child: Text(
+                      _formattedNextVtDate.isEmpty
+                          ? 'Sélectionner une date'
+                          : _formattedNextVtDate,
+                      style: TextStyle(
+                        color: _formattedNextVtDate.isEmpty
+                            ? Colors.grey
+                            : Colors.black87,
+                        fontSize: 15,
+                      ),
                     ),
                   ),
-                  validator: (v) {
-                    if (_result == 'favorable' &&
-                        (v == null || v.trim().isEmpty)) {
-                      return 'Requis pour un résultat favorable';
-                    }
-                    return null;
-                  },
                 ),
+                // Validation manuelle (le date picker empêche déjà les dates invalides)
+                if (_nextVtDateCtrl.text.isEmpty && _result == 'favorable')
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6, left: 4),
+                    child: Text(
+                      'La date du prochain contrôle est requise',
+                      style: TextStyle(
+                        color: Colors.red[700],
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: 16),
               ],
               const Text(

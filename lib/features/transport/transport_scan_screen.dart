@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 // lib/features/transport/transport_scan_screen.dart
 // ─────────────────────────────────────────────────────────────────────────────
 // Écran de scan QR pour les missions transport (4 étapes).
@@ -10,7 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../core/services/terrain_service.dart';
-
+import '../../core/services/snackbar_helper.dart';
 class TransportScanScreen extends StatefulWidget {
   final String missionId;
   final String scanType; // 'pickup' | 'delivery' | 'return' | 'final'
@@ -137,12 +136,11 @@ class _TransportScanScreenState extends State<TransportScanScreen>
         message = 'Erreur : ${e.toString()}';
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 4),
-        ),
+      showAppSnackBar(
+        context,
+        message,
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 4),
       );
       _cameraController?.start();
     }

@@ -6,6 +6,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'core/providers/auth_provider.dart';
 import 'core/services/notification_service.dart';
@@ -30,18 +31,12 @@ const AndroidNotificationChannel _terrainChannel = AndroidNotificationChannel(
 final FlutterLocalNotificationsPlugin _localNotifications =
     FlutterLocalNotificationsPlugin();
 
-// ── FIX CRITIQUE #1 : stocker le port dans une variable STATIQUE (top-level)
-// pour empêcher le garbage collector de le libérer pendant que main() se termine.
-// Une variable locale à main() est GC'd immédiatement après la fin de main().
+// FIX CRITIQUE #1 : stocker le port dans une variable STATIQUE (top-level)
 RawReceivePort? _isolateErrorPort;
 
 // ── Handler background / terminated ──────────────────────────────────────
-//
-// Isolate séparé — affiche une notification locale pour les types importants.
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // Firebase peut déjà être initialisé dans cet isolate ; on ignore
-  // l'exception DuplicateApp plutôt que de crasher.
   try {
     await Firebase.initializeApp();
   } catch (_) {}
@@ -118,7 +113,6 @@ final _navigatorKey = GlobalKey<NavigatorState>();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Affiche les erreurs UI en rouge en debug pour les diagnostiquer rapidement.
   ErrorWidget.builder = (FlutterErrorDetails details) => Material(
         color: const Color(0xFF8B0000),
         child: Container(
@@ -133,19 +127,14 @@ void main() async {
         ),
       );
 
-  // ── FIX CRITIQUE #1 : Firebase.initializeApp() peut crasher silencieusement
-  // si google-services.json est absent ou mal configuré. On le wrappe pour
-  // avoir un message d'erreur explicite.
   try {
     await Firebase.initializeApp();
   } catch (e, s) {
     debugPrint('❌ Firebase.initializeApp() a échoué : $e\n$s');
-    // On continue quand même pour afficher l'UI (mode offline).
     runApp(const _FirebaseErrorApp());
     return;
   }
 
-  // ── Crashlytics ──────────────────────────────────────────────────────────
   await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(!kDebugMode);
   FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
   PlatformDispatcher.instance.onError = (error, stack) {
@@ -153,8 +142,6 @@ void main() async {
     return true;
   };
 
-  // FIX CRITIQUE #1 (suite) : _isolateErrorPort est une variable STATIQUE (top-level),
-  // pas locale à main(), ce qui empêche le GC de la libérer.
   _isolateErrorPort = RawReceivePort((pair) async {
     final list = pair as List<dynamic>;
     await FirebaseCrashlytics.instance.recordError(
@@ -163,10 +150,8 @@ void main() async {
   });
   Isolate.current.addErrorListener(_isolateErrorPort!.sendPort);
 
-  // ── FCM background handler ───────────────────────────────────────────────
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-  // ── flutter_local_notifications — canal Android ──────────────────────────
   await _localNotifications.initialize(
     const InitializationSettings(
       android: AndroidInitializationSettings('@mipmap/ic_launcher'),
@@ -181,14 +166,11 @@ void main() async {
       .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
       ?.createNotificationChannel(_terrainChannel);
 
-  // ── Service notifications foreground ────────────────────────────────────
-  // On passe l'instance déjà initialisée au service.
   await TerrainNotificationService.instance.init(_navigatorKey, _localNotifications);
 
   try {
     runApp(const TerrainApp());
   } catch (e, stackTrace) {
-    // En cas de crash, afficher l'erreur à l'écran
     runApp(_StartupErrorApp(error: e.toString(), stackTrace: stackTrace.toString()));
   }
 }
@@ -251,6 +233,20 @@ class TerrainApp extends StatelessWidget {
         title: 'VigiRoutes Terrain',
         debugShowCheckedModeBanner: false,
         navigatorKey: _navigatorKey,
+
+        // ── Localisation FR ─────────────────────────────────────────────
+        // Nécessaire pour le date picker (showDatePicker) en français.
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('fr', 'FR'),
+          Locale('en', 'US'),
+        ],
+        locale: const Locale('fr', 'FR'),
+
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFFF6B35)),
           useMaterial3: true,
@@ -276,11 +272,7 @@ class TerrainApp extends StatelessWidget {
   }
 }
 
-// ── FIX #6 : _RootScreen gère TOUTE la navigation post-auth.
-// login_screen.dart ne doit plus appeler Navigator.pushReplacementNamed('/home')
-// car ça empilerait deux HomeScreenWrapper. _RootScreen est le seul point
-// de décision : quand AuthProvider.isAuthenticated passe à true,
-// Flutter reconstruit _RootScreen qui retourne HomeScreenWrapper directement.
+// ── _RootScreen ─────────────────────────────────────────────────────────
 class _RootScreen extends StatelessWidget {
   const _RootScreen();
 
