@@ -1,8 +1,15 @@
-name: Flutter Build APK
+cat > .github/workflows/main.yml << 'EOF'
+name: Build APK
 
 on:
   push:
+    branches:
+      - main
+      - 'feat/**'
+      - 'fix/**'
+  pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -12,26 +19,19 @@ jobs:
 
       - uses: actions/setup-java@v4
         with:
-          distribution: temurin
-          java-version: '21'
+          distribution: 'temurin'
+          java-version: '17'
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.44.1'
-          channel: stable
-          cache: true
+          flutter-version: '3.24.0'
+          channel: 'stable'
 
-      - name: Write google-services.json
+      - name: Decode google-services.json
         run: echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 -d > android/app/google-services.json
-
-      - name: Create local.properties
-        run: echo "sdk.dir=$ANDROID_HOME" > android/local.properties
 
       - name: Get dependencies
         run: flutter pub get
-
-      - name: Analyze (warnings only)
-        run: flutter analyze lib/ --no-fatal-infos || true
 
       - name: Build APK
         run: flutter build apk --release
@@ -39,6 +39,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: vigiroutes-terrain-apk-${{ github.run_number }}
+          name: vigiroutes-terrain-apk
           path: build/app/outputs/flutter-apk/app-release.apk
-          retention-days: 30
+EOF
