@@ -36,6 +36,14 @@ class TransportMissionsScreen extends StatelessWidget {
         foregroundColor: Colors.white,
         title: const Text('Missions transport'),
         actions: [
+          // ✅ S14 : bouton tri (distance / créneau)
+          IconButton(
+            icon: Icon(ctrl.sortByDistance ? Icons.route : Icons.schedule),
+            tooltip: ctrl.sortByDistance
+                ? 'Trié par distance'
+                : 'Trié par créneau',
+            onPressed: ctrl.toggleSortMode,
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: ctrl.refresh,
@@ -111,29 +119,94 @@ class TransportMissionsScreen extends StatelessWidget {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: ctrl.missions.length,
-      itemBuilder: (ctx, i) {
-        final mission = ctrl.missions[i];
-        return _MissionCard(
-          mission: mission,
-          onTap: () async {
-            await Navigator.push(
-              ctx,
-              MaterialPageRoute(
-                builder: (_) => TransportMissionDetailScreenWrapper(
-                  missionId: mission.id,
-                ),
-              ),
-            );
-            ctrl.refresh();
-          },
-        );
-      },
+    // ✅ S14 : bandeau position + liste
+    return Column(
+      children: [
+        _PositionBanner(ctrl: ctrl),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: ctrl.missions.length,
+            itemBuilder: (ctx, i) {
+              final mission = ctrl.missions[i];
+              return _MissionCard(
+                mission: mission,
+                onTap: () async {
+                  await Navigator.push(
+                    ctx,
+                    MaterialPageRoute(
+                      builder: (_) => TransportMissionDetailScreenWrapper(
+                        missionId: mission.id,
+                      ),
+                    ),
+                  );
+                  ctrl.refresh();
+                },
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Bandeau position actuelle (S14)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PositionBanner extends StatelessWidget {
+  final TransportMissionsController ctrl;
+  const _PositionBanner({required this.ctrl});
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPos = ctrl.currentLat != null && ctrl.currentLng != null;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: ctrl.sortByDistance
+            ? const Color(0xFFFF6B35).withValues(alpha: 0.08)
+            : Colors.grey.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            hasPos ? Icons.my_location : Icons.location_off,
+            size: 16,
+            color: hasPos ? const Color(0xFFFF6B35) : Colors.grey,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              hasPos
+                  ? 'Position : ${ctrl.currentLat!.toStringAsFixed(4)}, ${ctrl.currentLng!.toStringAsFixed(4)}'
+                  : 'Position indisponible',
+              style: TextStyle(
+                fontSize: 12,
+                color: hasPos ? const Color(0xFFFF6B35) : Colors.grey[700],
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh, size: 18),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: ctrl.refreshPosition,
+            tooltip: 'Actualiser ma position',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Carte mission
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _MissionCard extends StatelessWidget {
   final TransportMissionModel mission;
@@ -278,6 +351,28 @@ class _MissionCard extends StatelessWidget {
                         style: const TextStyle(fontSize: 13),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+
+              // ✅ S14 : distance depuis la position actuelle
+              if (mission.distanceKm != null) ...[
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    const Icon(Icons.route,
+                        size: 14, color: Color(0xFFFF6B35)),
+                    const SizedBox(width: 6),
+                    Text(
+                      mission.distanceKm! < 1
+                          ? 'À ${(mission.distanceKm! * 1000).round()} m'
+                          : 'À ${mission.distanceKm!.toStringAsFixed(1)} km',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFFFF6B35),
                       ),
                     ),
                   ],

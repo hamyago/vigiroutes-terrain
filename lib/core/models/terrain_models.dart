@@ -234,6 +234,7 @@ class TransportMissionModel {
   final double? clientLat;
   final double? clientLng;
   final String? clientAddress;
+  final double? distanceKm;
 
   final String? centerName;
   final String? centerAddress;
@@ -261,6 +262,7 @@ class TransportMissionModel {
     this.clientLat,
     this.clientLng,
     this.clientAddress,
+    this.distanceKm,
     this.centerName,
     this.centerAddress,
     this.transporterEnRouteAt,
@@ -297,6 +299,7 @@ class TransportMissionModel {
       clientLat:       parseDouble(json['client_lat']),
       clientLng:       parseDouble(json['client_lng']),
       clientAddress:   json['client_address'] as String?,
+      distanceKm:      parseDouble(json['distance_km']),
       centerName:      json['center_name'] as String?,
       centerAddress:   json['center_address'] as String?,
       transporterEnRouteAt:       parseDate(json['transporter_en_route_at']),
