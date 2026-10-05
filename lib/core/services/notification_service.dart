@@ -1,7 +1,9 @@
+// lib/core/services/notification_service.dart
 import 'dart:async';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'api_service.dart';
 
 /// Gère les notifications push FCM pour l'app Terrain (agents CT).
 ///
@@ -9,16 +11,15 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 ///   - booking_confirmed    → nouvelle réservation CT assignée à ce centre
 ///   - vehicle_at_center    → client arrivé avec son véhicule
 ///   - transport_update     → mise à jour transport/remorquage vers le centre
+///   - ct_mission_assigned  → mission transport assignée à ce transporteur
 ///   - vt_reminder_30d/15d/7d → rappels CT pour les clients du centre
 ///   - vt_expired           → CT expiré (action requise côté centre)
 ///
-/// Usage : TerrainNotificationService.instance.init(navigatorKey)
+/// Usage : TerrainNotificationService.instance.init(navigatorKey, localNotifications)
 class TerrainNotificationService {
   TerrainNotificationService._();
   static final instance = TerrainNotificationService._();
 
-  // FIX #4 : utiliser l'instance globale initialisée dans main.dart, pas une
-  // instance locale jamais initialisée.
   late FlutterLocalNotificationsPlugin _localNotifications;
   GlobalKey<NavigatorState>? _navigatorKey;
 
@@ -31,8 +32,7 @@ class TerrainNotificationService {
     _navigatorKey = navigatorKey;
     _localNotifications = localNotifications;
 
-    // FIX #3 : NE PAS awaiter requestPermission ici — cela bloque le démarrage
-    // sur iOS. On diffère après le premier frame.
+    // NE PAS awaiter requestPermission ici — cela bloque le démarrage sur iOS
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await FirebaseMessaging.instance.requestPermission(
         alert: true, sound: true, badge: true,
@@ -51,6 +51,33 @@ class TerrainNotificationService {
 
     // Foreground : Android n'affiche pas les FCM automatiquement
     FirebaseMessaging.onMessage.listen(_handleForeground);
+
+    // ✅ Enregistrer le token FCM dès l'init (si déjà loggé, le token
+    // est envoyé ; sinon la requête échoue silencieusement avec 401)
+    unawaited(sendTokenToBackend());
+  }
+
+  // ── Envoi du token FCM au backend ──────────────────────────────────────────
+
+  /// Récupère le token FCM et l'envoie au backend.
+  /// À appeler après login réussi ET à l'init.
+  Future<void> sendTokenToBackend() async {
+    try {
+      final fcmToken = await FirebaseMessaging.instance.getToken();
+      if (fcmToken == null) {
+        debugPrint('[Notification] Pas de FCM token disponible');
+        return;
+      }
+
+      await ApiService().post(
+        '/terrain/auth/fcm-token',
+        data: {'fcm_token': fcmToken},
+      );
+
+      debugPrint('[Notification] FCM token envoyé: ${fcmToken.substring(0, 20)}...');
+    } catch (e) {
+      debugPrint('[Notification] Erreur envoi FCM token: $e');
+    }
   }
 
   // ── Foreground ─────────────────────────────────────────────────────────────
@@ -59,22 +86,31 @@ class TerrainNotificationService {
     final type = message.data['type'] as String?;
     if (type == null) return;
 
+    // ✅ FIX : lire data['title']/data['body'] d'abord (backend data-only)
     final notification = message.notification;
-    final title = notification?.title ?? _titleForType(type);
-    final body  = notification?.body  ?? _bodyForType(type);
+    final title = (message.data['title'] as String?) ??
+        notification?.title ??
+        _titleForType(type);
+    final body = (message.data['body'] as String?) ??
+        notification?.body ??
+        _bodyForType(type);
 
     _showLocalNotification(type: type, title: title, body: body);
 
     // Snackbar pour les types urgents
     switch (type) {
-      case 'booking_confirmed' || 'vehicle_at_center' || 'transport_update':
+      case 'booking_confirmed' || 'vehicle_at_center' || 'transport_update' || 'ct_mission_assigned':
         _showSnackbar(
           body,
           action: SnackBarAction(
             label: 'Voir',
             onPressed: () {
               final bookingId = message.data['booking_id'] as String?;
-              if (bookingId != null) _navigate('/booking/$bookingId');
+              if (type == 'ct_mission_assigned') {
+                _navigate('/transport/missions');
+              } else if (bookingId != null) {
+                _navigate('/booking/$bookingId');
+              }
             },
           ),
         );
@@ -92,6 +128,8 @@ class TerrainNotificationService {
     final bookingId = message.data['booking_id'] as String?;
 
     switch (type) {
+      case 'ct_mission_assigned':
+        _navigate('/transport/missions');
       case 'booking_confirmed' || 'vehicle_at_center' || 'transport_update':
         if (bookingId != null) _navigate('/booking/$bookingId');
       default:
@@ -153,22 +191,24 @@ class TerrainNotificationService {
   }
 
   String _titleForType(String type) => switch (type) {
-        'booking_confirmed' => '✅ Nouvelle réservation CT',
-        'vehicle_at_center' => '🏁 Véhicule arrivé au centre',
-        'transport_update'  => '🚗 Mise à jour transport',
-        'vt_reminder_30d'   => '📅 CT dans 30 jours',
-        'vt_reminder_15d'   => '📅 CT dans 15 jours',
-        'vt_reminder_7d'    => '⚠️ CT dans 7 jours',
-        'vt_expired'        => '🚫 CT expiré',
-        _                   => 'VigiRoutes Terrain',
+        'booking_confirmed'    => '✅ Nouvelle réservation CT',
+        'vehicle_at_center'    => '🏁 Véhicule arrivé au centre',
+        'transport_update'     => '🚗 Mise à jour transport',
+        'ct_mission_assigned'  => '📋 Nouvelle mission CT assignée',
+        'vt_reminder_30d'      => '📅 CT dans 30 jours',
+        'vt_reminder_15d'      => '📅 CT dans 15 jours',
+        'vt_reminder_7d'       => '⚠️ CT dans 7 jours',
+        'vt_expired'           => '🚫 CT expiré',
+        _                      => 'VigiRoutes Terrain',
       };
 
   String _bodyForType(String type) => switch (type) {
-        'booking_confirmed' => 'Une nouvelle réservation a été confirmée.',
-        'vehicle_at_center' => "Le véhicule du client est arrivé. Procédez à l'inspection.",
-        'transport_update'  => 'Une mise à jour du transport est disponible.',
-        'vt_reminder_7d'    => 'Rappel : contrôle technique dans 7 jours.',
-        'vt_expired'        => 'Contrôle technique expiré — action requise.',
-        _                   => 'Appuyez pour voir les détails.',
+        'booking_confirmed'   => 'Une nouvelle réservation a été confirmée.',
+        'vehicle_at_center'   => "Le véhicule du client est arrivé. Procédez à l'inspection.",
+        'transport_update'    => 'Une mise à jour du transport est disponible.',
+        'ct_mission_assigned' => 'Une nouvelle mission de transport vous a été assignée.',
+        'vt_reminder_7d'      => 'Rappel : contrôle technique dans 7 jours.',
+        'vt_expired'          => 'Contrôle technique expiré — action requise.',
+        _                     => 'Appuyez pour voir les détails.',
       };
 }

@@ -1,6 +1,8 @@
+// lib/core/providers/auth_provider.dart
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/notification_service.dart';
 import '../services/terrain_service.dart';
 
 class AuthProvider extends ChangeNotifier {
@@ -42,6 +44,10 @@ class AuthProvider extends ChangeNotifier {
         _isCtTransporter = prefs.getBool('is_ct_transporter') ?? false;
         _ctTransporterType = prefs.getString('ct_transporter_type');
         _isAuthenticated = true;
+
+        // ✅ Ré-envoyer le token FCM au backend à chaque démarrage
+        // (le token FCM peut changer au fil du temps)
+        TerrainNotificationService.instance.sendTokenToBackend();
       } else {
         _isAuthenticated = false;
       }
@@ -92,6 +98,10 @@ class AuthProvider extends ChangeNotifier {
       _isAuthenticated = true;
       _isLoading = false;
       notifyListeners();
+
+      // ✅ Envoyer le token FCM au backend (post-login)
+      TerrainNotificationService.instance.sendTokenToBackend();
+
       return true;
     } catch (e) {
       _error = _extractError(e);
