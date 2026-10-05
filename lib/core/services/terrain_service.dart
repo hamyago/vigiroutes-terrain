@@ -115,8 +115,24 @@ class TerrainService {
   // MISSIONS TRANSPORT CT (transporteurs accrédités)
   // ──────────────────────────────────────────────────────────────────────────
 
-  Future<List<TransportMissionModel>> getTransportMissions() async {
-    final response = await _api.get('/ct/transport/missions');
+  Future<List<TransportMissionModel>> getTransportMissions({
+    double? lat,
+    double? lng,
+    String sort = 'slot',
+  }) async {
+    // S14 : tri par distance si lat/lng fournis
+    final params = <String, dynamic>{};
+    if (sort == 'distance' && lat != null && lng != null) {
+      params['sort'] = 'distance';
+      params['lat']  = lat;
+      params['lng']  = lng;
+    }
+
+    final response = await _api.get(
+      '/ct/transport/missions',
+      params: params.isEmpty ? null : params,
+    );
+
     final List data = response.data['data'] as List? ?? [];
     return data
         .map((e) => TransportMissionModel.fromJson(e as Map<String, dynamic>))
