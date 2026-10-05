@@ -48,6 +48,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     'booking_confirmed',
     'vehicle_at_center',
     'transport_update',
+    'ct_mission_assigned',
     'vt_reminder_7d',
     'vt_expired',
   };
@@ -62,8 +63,13 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   );
 
   final notification = message.notification;
-  final title = notification?.title ?? _titleForType(type);
-  final body  = notification?.body  ?? _bodyForType(type);
+  // FIX Session 13.6 : lire data['title']/data['body'] en priorité
+  final title = (data['title'] as String?) ??
+      notification?.title ??
+      _titleForType(type);
+  final body = (data['body'] as String?) ??
+      notification?.body ??
+      _bodyForType(type);
 
   await plugin.show(
     type.hashCode,
@@ -89,21 +95,23 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 }
 
 String _titleForType(String type) => switch (type) {
-      'booking_confirmed' => '✅ Nouvelle réservation CT',
-      'vehicle_at_center' => '🏁 Véhicule arrivé au centre',
-      'transport_update'  => '🚗 Mise à jour transport',
-      'vt_reminder_7d'    => '⚠️ CT dans 7 jours',
-      'vt_expired'        => '🚫 CT expiré',
-      _                   => 'VigiRoutes Terrain',
+      'booking_confirmed'    => '✅ Nouvelle réservation CT',
+      'vehicle_at_center'    => '🏁 Véhicule arrivé au centre',
+      'transport_update'     => '🚗 Mise à jour transport',
+      'ct_mission_assigned'  => '📋 Nouvelle mission CT assignée',
+      'vt_reminder_7d'       => '⚠️ CT dans 7 jours',
+      'vt_expired'           => '🚫 CT expiré',
+      _                      => 'VigiRoutes Terrain',
     };
 
 String _bodyForType(String type) => switch (type) {
-      'booking_confirmed' => 'Une nouvelle réservation a été confirmée.',
-      'vehicle_at_center' => "Le véhicule du client est arrivé. Procédez à l'inspection.",
-      'transport_update'  => 'Une mise à jour du transport est disponible.',
-      'vt_reminder_7d'    => 'Rappel : contrôle technique dans 7 jours.',
-      'vt_expired'        => 'Contrôle technique expiré — action requise.',
-      _                   => 'Appuyez pour voir les détails.',
+      'booking_confirmed'   => 'Une nouvelle réservation a été confirmée.',
+      'vehicle_at_center'   => "Le véhicule du client est arrivé. Procédez à l'inspection.",
+      'transport_update'    => 'Une mise à jour du transport est disponible.',
+      'ct_mission_assigned' => 'Une nouvelle mission de transport vous a été assignée.',
+      'vt_reminder_7d'      => 'Rappel : contrôle technique dans 7 jours.',
+      'vt_expired'          => 'Contrôle technique expiré — action requise.',
+      _                     => 'Appuyez pour voir les détails.',
     };
 
 // ── Entrée principale ─────────────────────────────────────────────────────
