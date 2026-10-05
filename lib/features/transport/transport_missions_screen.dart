@@ -262,6 +262,28 @@ class _MissionCard extends StatelessWidget {
                 ),
               ],
 
+              // Adresse de prise en charge
+              if (mission.clientAddress != null &&
+                  mission.clientAddress!.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.location_on_outlined,
+                        size: 16, color: Colors.grey),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        mission.clientAddress!,
+                        style: const TextStyle(fontSize: 13),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+
               const SizedBox(height: 12),
               const Divider(height: 1),
               const SizedBox(height: 10),

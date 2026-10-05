@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/models/terrain_models.dart';
+import '../../core/utils/navigation_launcher.dart';
 import 'transport_mission_detail_controller.dart';
 import 'transport_scan_screen.dart';
 
@@ -183,58 +184,214 @@ class _VehicleCard extends StatelessWidget {
   }
 }
 
-class _ClientCard extends StatelessWidget {
+class _ClientCard extends StatefulWidget {
   final TransportMissionModel mission;
   const _ClientCard({required this.mission});
 
   @override
+  State<_ClientCard> createState() => _ClientCardState();
+}
+
+class _ClientCardState extends State<_ClientCard> {
+  double? _distanceKm;
+  bool _locating = false;
+  bool _locationUnavailable = false;
+
+  TransportMissionModel get mission => widget.mission;
+
+  @override
+  void initState() {
+    super.initState();
+    _computeDistance();
+  }
+
+  Future<void> _computeDistance() async {
+    final lat = mission.clientLat;
+    final lng = mission.clientLng;
+    if (lat == null || lng == null) return;
+
+    setState(() => _locating = true);
+    final pos = await NavigationLauncher.getCurrentPositionSafe();
+    if (!mounted) return;
+
+    if (pos == null) {
+      setState(() {
+        _locating = false;
+        _locationUnavailable = true;
+      });
+      return;
+    }
+
+    final km = NavigationLauncher.haversineKm(
+      pos.latitude,
+      pos.longitude,
+      lat,
+      lng,
+    );
+    setState(() {
+      _distanceKm = km;
+      _locating = false;
+      _locationUnavailable = false;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final hasCoords = mission.clientLat != null && mission.clientLng != null;
+
     return _Card(
       icon: Icons.person_outline,
       title: 'Client',
       children: [
-        if (mission.clientName != null) _InfoRow(label: 'Nom', value: mission.clientName!),
+        if (mission.clientName != null)
+          _InfoRow(label: 'Nom', value: mission.clientName!),
         if (mission.clientPhone != null)
           _InfoRow(label: 'Téléphone', value: mission.clientPhone!),
         if (mission.clientAddress != null)
           _InfoRow(label: 'Adresse', value: mission.clientAddress!),
-        if (mission.clientPhone != null) ...[
+
+        if (hasCoords) ...[
           const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _call(mission.clientPhone!),
-                  icon: const Icon(Icons.phone, size: 16),
-                  label: const Text('Appeler'),
-                ),
+          _buildDistanceBanner(),
+        ],
+
+        if (mission.clientPhone != null || hasCoords) ...[
+          const SizedBox(height: 10),
+          if (mission.clientPhone != null)
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _call(mission.clientPhone!),
+                icon: const Icon(Icons.phone, size: 16),
+                label: const Text('Appeler'),
               ),
-              const SizedBox(width: 8),
-              if (mission.clientLat != null && mission.clientLng != null)
+            ),
+          if (hasCoords) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
                 Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _openMap(mission.clientLat!, mission.clientLng!),
-                    icon: const Icon(Icons.map, size: 16),
-                    label: const Text('Itinéraire'),
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFFFF6B35),
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: () => NavigationLauncher.openGoogleMapsDirections(
+                      destLat: mission.clientLat!,
+                      destLng: mission.clientLng!,
+                    ),
+                    icon: const Icon(Icons.navigation, size: 16),
+                    label: const Text('Maps'),
                   ),
                 ),
-            ],
-          ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => NavigationLauncher.openWaze(
+                      destLat: mission.clientLat!,
+                      destLng: mission.clientLng!,
+                    ),
+                    icon: const Icon(Icons.directions_car, size: 16),
+                    label: const Text('Waze'),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ],
     );
   }
 
+  Widget _buildDistanceBanner() {
+    if (_locating) {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        decoration: BoxDecoration(
+          color: Colors.blue.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Row(
+          children: [
+            SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 8),
+            Text(
+              'Calcul de la distance…',
+              style: TextStyle(fontSize: 12, color: Colors.blue),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_locationUnavailable) {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        decoration: BoxDecoration(
+          color: Colors.grey.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.location_off, size: 14, color: Colors.grey[700]),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Position actuelle indisponible',
+                style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+              ),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(0, 0),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              onPressed: _computeDistance,
+              child: const Text('Réessayer', style: TextStyle(fontSize: 12)),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_distanceKm != null) {
+      final txt = _distanceKm! < 1
+          ? '${(_distanceKm! * 1000).round()} m'
+          : '${_distanceKm!.toStringAsFixed(1)} km';
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFF6B35).withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.route, size: 16, color: Color(0xFFFF6B35)),
+            const SizedBox(width: 8),
+            Text(
+              'À $txt de vous',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFFFF6B35),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
   Future<void> _call(String phone) async {
     final uri = Uri.parse('tel:$phone');
     if (await canLaunchUrl(uri)) await launchUrl(uri);
-  }
-
-  Future<void> _openMap(double lat, double lng) async {
-    final uri = Uri.parse('https://maps.google.com/?q=$lat,$lng');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
   }
 }
 
@@ -360,7 +517,6 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Déterminer l'action en fonction de l'étape
     final action = _actionFor(mission);
     if (action == null) {
       return const SizedBox.shrink();
@@ -448,9 +604,6 @@ class _ActionButton extends StatelessWidget {
         break;
 
       case 'return':
-        // Le scan "return" se fait sur le QR du client (même QR).
-        // Pour la V1, on utilise le même scanner que pickup, avec scan_type='return'.
-        // Le transporteur devra scanner le QR du client pour marquer le départ.
         Navigator.push(
           context,
           MaterialPageRoute(
