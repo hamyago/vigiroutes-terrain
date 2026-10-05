@@ -4,6 +4,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/terrain_models.dart';
 import 'scan_controller.dart';
+import '../booking/booking_detail_controller.dart';
 import '../../core/services/snackbar_helper.dart';
 // ScanScreenWrapper : possède le Provider, stable à travers les rebuilds.
 class ScanScreenWrapper extends StatelessWidget {
@@ -146,6 +147,10 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
       builder: (ctx) => _ScanSuccessSheet(
         booking: booking,
         onViewDetails: () {
+          // ✅ Fix Session 13.6 : invalider le cache pour forcer un refresh
+          // (sinon le détail affiche l'ancien statut d'avant le scan)
+          BookingDetailController.invalidateCache(booking.id);
+
           Navigator.pop(ctx);
           Navigator.pushNamed(context, '/booking/${booking.id}');
         },

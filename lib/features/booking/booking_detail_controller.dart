@@ -27,6 +27,12 @@ class BookingDetailController extends ChangeNotifier {
     _cache[booking.id] = booking;
   }
 
+  /// ✅ Session 13.6 : invalide une entrée du cache.
+  /// Utile après un scan QR pour forcer le rechargement du booking.
+  static void invalidateCache(String id) {
+    _cache.remove(id);
+  }
+
   Future<void> loadBooking(String id) async {
     // 1. Cache hit → affichage immédiat, pas de loading.
     if (_cache.containsKey(id)) {
