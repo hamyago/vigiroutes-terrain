@@ -9,6 +9,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'core/providers/auth_provider.dart';
+import 'core/services/alert_service.dart';
 import 'core/services/notification_service.dart';
 import 'features/auth/login_screen.dart';
 import 'features/home/home_screen.dart';
@@ -175,6 +176,7 @@ void main() async {
       ?.createNotificationChannel(_terrainChannel);
 
   await TerrainNotificationService.instance.init(_navigatorKey, _localNotifications);
+  await TerrainAlertService.instance.init();
 
   try {
     runApp(const TerrainApp());

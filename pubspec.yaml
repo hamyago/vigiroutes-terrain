@@ -26,9 +26,13 @@ dependencies:
   flutter_local_notifications: ^18.0.1
   url_launcher: ^6.3.2
   signature: ^6.4.0
+  audioplayers: ^6.8.1
+  flutter_tts: ^4.2.5
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/raw/alarm.wav
 
 dev_dependencies:
   flutter_test:
