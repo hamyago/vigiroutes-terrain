@@ -163,4 +163,26 @@ class TerrainService {
     final data = response.data['data'] as Map<String, dynamic>;
     return TransportMissionModel.fromJson(data);
   }
+
+  /// Session 15 - Phase 4 : envoie la signature (ou motif de bypass) au backend.
+  /// - validationType : 'signed' | 'refused' | 'absent'
+  /// - signature : PNG base64 (format 'data:image/png;base64,...')
+  /// - note : motif obligatoire pour bypass (absent/refused)
+  Future<TransportMissionModel> validateDelivery(
+    String missionId, {
+    required String validationType,
+    required String signature,
+    String? note,
+  }) async {
+    final response = await _api.post(
+      '/ct/transport/missions/$missionId/validate-delivery',
+      data: {
+        'validation_type': validationType,
+        'signature': signature,
+        if (note != null && note.isNotEmpty) 'note': note,
+      },
+    );
+    final data = response.data['data'] as Map<String, dynamic>;
+    return TransportMissionModel.fromJson(data);
+  }
 }

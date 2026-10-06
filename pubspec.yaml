@@ -25,6 +25,7 @@ dependencies:
   firebase_crashlytics: ^4.1.3
   flutter_local_notifications: ^18.0.1
   url_launcher: ^6.3.2
+  signature: ^6.4.0
 
 flutter:
   uses-material-design: true
