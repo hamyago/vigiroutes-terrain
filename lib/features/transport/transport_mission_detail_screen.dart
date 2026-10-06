@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/models/terrain_models.dart';
 import '../../core/utils/navigation_launcher.dart';
+import 'client_signature_screen.dart';
 import 'transport_mission_detail_controller.dart';
 import 'transport_scan_screen.dart';
 
@@ -518,38 +519,103 @@ class _ActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final action = _actionFor(mission);
-    if (action == null) {
+    final canSign = _canSignDelivery(mission);
+
+    // Si aucune action principale et pas de signature possible
+    if (action == null && !canSign) {
       return const SizedBox.shrink();
     }
 
-    return SizedBox(
-      width: double.infinity,
-      height: 52,
-      child: ElevatedButton.icon(
-        onPressed: ctrl.isLoading ? null : () => _onPressed(context, action),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFFF6B35),
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        icon: ctrl.isLoading
-            ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
+    return Column(
+      children: [
+        // Bouton principal (si action disponible)
+        if (action != null)
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton.icon(
+              onPressed: ctrl.isLoading ? null : () => _onPressed(context, action),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFF6B35),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              )
-            : Icon(action.icon),
-        label: Text(
-          action.label,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-        ),
-      ),
+              ),
+              icon: ctrl.isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Icon(action.icon),
+              label: Text(
+                action.label,
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+              ),
+            ),
+          ),
+
+        // Bouton secondaire "Faire signer le client" (S15)
+        if (canSign) ...[
+          if (action != null) const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: OutlinedButton.icon(
+              onPressed: ctrl.isLoading
+                  ? null
+                  : () async {
+                      final ok = await Navigator.push<bool>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ClientSignatureScreen(
+                            missionId: mission.id,
+                            missionReference: mission.reference,
+                          ),
+                        ),
+                      );
+                      if (ok == true) {
+                        await ctrl.loadMission(mission.id);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Livraison validée ✓'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        }
+                      }
+                    },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFFF6B35),
+                side: const BorderSide(color: Color(0xFFFF6B35)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              icon: const Icon(Icons.draw, size: 18),
+              label: const Text(
+                'Faire signer le client',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+              ),
+            ),
+          ),
+        ],
+      ],
     );
+  }
+
+  /// S15 : la signature est possible si :
+  /// - le transporteur est en retour OU
+  /// - la mission est déjà livrée
+  bool _canSignDelivery(TransportMissionModel m) {
+    if (m.transporterStatus == 'return_en_route') return true;
+    if (m.transporterStatus == 'delivered_to_client') return true;
+    return false;
   }
 
   _Action? _actionFor(TransportMissionModel m) {
