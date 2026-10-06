@@ -613,6 +613,11 @@ class _ActionButton extends StatelessWidget {
   /// - le transporteur est en retour OU
   /// - la mission est déjà livrée
   bool _canSignDelivery(TransportMissionModel m) {
+    // S22 : masquer si la livraison est deja validee (signature OU bypass)
+    if (m.clientSignatureAt != null) return false;
+    if (m.deliveryValidationType != null) return false;
+
+    // Sinon, autoriser si on est dans les statuts appropries
     if (m.transporterStatus == 'return_en_route') return true;
     if (m.transporterStatus == 'delivered_to_client') return true;
     return false;

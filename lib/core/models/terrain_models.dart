@@ -236,6 +236,10 @@ class TransportMissionModel {
   final String? clientAddress;
   final double? distanceKm;
 
+  // S22 : signature client
+  final DateTime? clientSignatureAt;
+  final String? deliveryValidationType;
+
   final String? centerName;
   final String? centerAddress;
 
@@ -263,6 +267,8 @@ class TransportMissionModel {
     this.clientLng,
     this.clientAddress,
     this.distanceKm,
+    this.clientSignatureAt,
+    this.deliveryValidationType,
     this.centerName,
     this.centerAddress,
     this.transporterEnRouteAt,
@@ -299,6 +305,10 @@ class TransportMissionModel {
       clientLat:       parseDouble(json['client_lat']),
       clientLng:       parseDouble(json['client_lng']),
       clientAddress:   json['client_address'] as String?,
+
+      // S22 : signature client
+      clientSignatureAt:     parseDate(json['client_signature_at']),
+      deliveryValidationType: json['delivery_validation_type'] as String?,
       distanceKm:      parseDouble(json['distance_km']),
       centerName:      json['center_name'] as String?,
       centerAddress:   json['center_address'] as String?,
