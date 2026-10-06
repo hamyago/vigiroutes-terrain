@@ -29,6 +29,19 @@ const AndroidNotificationChannel _terrainChannel = AndroidNotificationChannel(
   enableVibration: true,
 );
 
+// ✅ S25 : Canal haute priorité pour les missions CT assignées
+// Important : ce canal DOIT être créé dans le _bgHandler (isolate séparé)
+// Sinon la notif tombe dans le canal "default" sans son d'alarme.
+const AndroidNotificationChannel _missionUpdatesChannel = AndroidNotificationChannel(
+  'mission_updates',
+  'Nouvelles missions CT',
+  description: 'Alertes des nouvelles missions transport assignées',
+  importance: Importance.max,
+  playSound: true,
+  enableVibration: true,
+  sound: RawResourceAndroidNotificationSound('alarm'),  // son custom
+);
+
 final FlutterLocalNotificationsPlugin _localNotifications =
     FlutterLocalNotificationsPlugin();
 
@@ -63,6 +76,12 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     ),
   );
 
+  // ✅ S25 : Créer explicitement le canal haute priorité DANS l'isolate
+  // Sinon la notif tombe dans le canal "default" (pas de son d'alarme).
+  await plugin
+      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+      ?.createNotificationChannel(_missionUpdatesChannel);
+
   final notification = message.notification;
   // FIX Session 13.6 : lire data['title']/data['body'] en priorité
   final title = (data['title'] as String?) ??
@@ -72,21 +91,29 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       notification?.body ??
       _bodyForType(type);
 
+  // ✅ S25 : les missions assignées utilisent le canal haute priorité
+  // avec fullScreenIntent (comme Pro)
+  final isMissionAssigned = type == 'ct_mission_assigned';
+
   await plugin.show(
     type.hashCode,
     title,
     body,
-    const NotificationDetails(
+    NotificationDetails(
       android: AndroidNotificationDetails(
-        'terrain_alerts',
-        'Alertes Terrain CT',
-        channelDescription: 'Notifications pour les agents du centre CT',
-        importance: Importance.high,
-        priority: Priority.high,
+        isMissionAssigned ? 'mission_updates' : 'terrain_alerts',
+        isMissionAssigned ? 'Nouvelles missions CT' : 'Alertes Terrain CT',
+        channelDescription: isMissionAssigned
+            ? 'Alertes des nouvelles missions transport assignées'
+            : 'Notifications pour les agents du centre CT',
+        importance: isMissionAssigned ? Importance.max : Importance.high,
+        priority: isMissionAssigned ? Priority.high : Priority.high,
+        fullScreenIntent: isMissionAssigned, // ← affiche même écran verrouillé
         playSound: true,
         enableVibration: true,
+        ticker: isMissionAssigned ? 'Nouvelle mission CT' : null,
       ),
-      iOS: DarwinNotificationDetails(
+      iOS: const DarwinNotificationDetails(
         presentAlert: true,
         presentBadge: true,
         presentSound: true,
@@ -174,6 +201,11 @@ void main() async {
   await _localNotifications
       .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
       ?.createNotificationChannel(_terrainChannel);
+
+  // ✅ S25 : Créer le canal haute priorité au boot
+  await _localNotifications
+      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+      ?.createNotificationChannel(_missionUpdatesChannel);
 
   await TerrainNotificationService.instance.init(_navigatorKey, _localNotifications);
   await TerrainAlertService.instance.init();
