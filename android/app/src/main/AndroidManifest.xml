@@ -9,6 +9,9 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
 
+    <!-- ✅ S25 : permission pour fullScreenIntent (notif plein écran mission) -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
+
     <!-- FIX crash démarrage : mobile_scanner requiert CAMERA.
          La permission était déjà déclarée dans le manifest original —
          on la conserve et on ajoute les <uses-feature> manquantes. -->

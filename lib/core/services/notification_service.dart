@@ -4,6 +4,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'api_service.dart';
+import 'alert_service.dart';
 
 /// Gère les notifications push FCM pour l'app Terrain (agents CT).
 ///
@@ -95,6 +96,20 @@ class TerrainNotificationService {
         notification?.body ??
         _bodyForType(type);
 
+    // ✅ S25 : Déclencher l'alerte sonore + vocale pour les nouvelles missions
+    if (type == 'ct_mission_assigned') {
+      final missionId = message.data['booking_id'] as String?;
+      if (missionId != null) {
+        TerrainAlertService.instance.newMission(
+          missionId: missionId,
+          reference: message.data['reference'] as String?,
+          clientName: message.data['client_name'] as String?,
+          address: message.data['client_address'] as String?,
+          transportMode: message.data['transport_mode'] as String?,
+        );
+      }
+    }
+
     _showLocalNotification(type: type, title: title, body: body);
 
     // Snackbar pour les types urgents
@@ -126,6 +141,11 @@ class TerrainNotificationService {
   void _handleTap(RemoteMessage message) {
     final type = message.data['type'] as String?;
     final bookingId = message.data['booking_id'] as String?;
+
+    // ✅ S25 : Arrêter l'alerte si le transporteur tape sur la notif
+    if (type == 'ct_mission_assigned') {
+      TerrainAlertService.instance.stop();
+    }
 
     switch (type) {
       case 'ct_mission_assigned':
