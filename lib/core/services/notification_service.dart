@@ -120,6 +120,10 @@ class TerrainNotificationService {
           action: SnackBarAction(
             label: 'Voir',
             onPressed: () {
+              // ✅ S26 : arrêter l'alerte si mission
+              if (type == 'ct_mission_assigned') {
+                TerrainAlertService.instance.stop();
+              }
               final bookingId = message.data['booking_id'] as String?;
               if (type == 'ct_mission_assigned') {
                 _navigate('/transport/missions');

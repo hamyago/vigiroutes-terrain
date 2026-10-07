@@ -19,6 +19,8 @@
 //   TerrainAlertService.instance.stop();
 // ─────────────────────────────────────────────────────────────────────────────
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_tts/flutter_tts.dart';
@@ -32,6 +34,10 @@ class TerrainAlertService {
 
   String? _ringingMissionId;
   bool _ttsReady = false;
+  Timer? _autoStopTimer;
+
+  /// Durée max de l'alerte (sécurité anti-boucle infinie)
+  static const _autoStopDuration = Duration(seconds: 60);
 
   // ── Initialisation TTS (appelée une fois au démarrage) ─────────────────
 
@@ -81,6 +87,13 @@ class TerrainAlertService {
     if (_ringingMissionId == missionId) return;
     _ringingMissionId = missionId;
 
+    // ✅ S26 : annuler l'ancien timer + démarrer un nouveau
+    _autoStopTimer?.cancel();
+    _autoStopTimer = Timer(_autoStopDuration, () {
+      debugPrint('[TerrainAlert] Timeout 60s → arrêt auto');
+      stop();
+    });
+
     // ── 1. Alarme sonore en boucle ────────────────────────────────────────
     try {
       await _player.setReleaseMode(ReleaseMode.loop);
@@ -104,6 +117,10 @@ class TerrainAlertService {
   // ── Arrêt ──────────────────────────────────────────────────────────────
 
   Future<void> stop() async {
+    // ✅ S26 : annuler le timer de sécurité
+    _autoStopTimer?.cancel();
+    _autoStopTimer = null;
+
     _ringingMissionId = null;
     await _player.stop();
     await _tts.stop();

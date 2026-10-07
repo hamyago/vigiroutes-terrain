@@ -262,8 +262,37 @@ class _FirebaseErrorApp extends StatelessWidget {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-class TerrainApp extends StatelessWidget {
+class TerrainApp extends StatefulWidget {
   const TerrainApp({super.key});
+
+  @override
+  State<TerrainApp> createState() => _TerrainAppState();
+}
+
+class _TerrainAppState extends State<TerrainApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    // ✅ S26 : arrêter l'alerte seulement si l'app est FERMÉE (detached).
+    // Ne PAS arrêter en background/inactive : le son doit continuer
+    // même si le transporteur verrouille son téléphone (comme un appel).
+    if (state == AppLifecycleState.detached) {
+      TerrainAlertService.instance.stop();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
