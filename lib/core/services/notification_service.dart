@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'api_service.dart';
 import 'alert_service.dart';
 
@@ -70,12 +72,24 @@ class TerrainNotificationService {
         return;
       }
 
+      // ✅ S26.1 : ne pas envoyer si le token n'a pas change
+      final prefs = await SharedPreferences.getInstance();
+      final lastSentToken = prefs.getString('last_sent_fcm_token');
+
+      if (lastSentToken == fcmToken) {
+        debugPrint('[Notification] FCM token inchange, skip');
+        return;
+      }
+
       await ApiService().post(
         '/terrain/auth/fcm-token',
         data: {'fcm_token': fcmToken},
       );
 
-      debugPrint('[Notification] FCM token envoyé: ${fcmToken.substring(0, 20)}...');
+      // Sauvegarder le token envoye
+      await prefs.setString('last_sent_fcm_token', fcmToken);
+
+      debugPrint('[Notification] FCM token envoye: ${fcmToken.substring(0, 20)}...');
     } catch (e) {
       debugPrint('[Notification] Erreur envoi FCM token: $e');
     }
