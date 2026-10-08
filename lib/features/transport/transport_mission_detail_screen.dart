@@ -12,6 +12,7 @@ import '../../core/utils/navigation_launcher.dart';
 import 'client_signature_screen.dart';
 import 'transport_mission_detail_controller.dart';
 import 'transport_scan_screen.dart';
+import 'vehicle_photos_screen.dart';
 
 class TransportMissionDetailScreenWrapper extends StatelessWidget {
   final String missionId;
@@ -688,7 +689,7 @@ class _ActionButton extends StatelessWidget {
         break;
 
       case 'scan_pickup':
-        Navigator.push(
+        final okPickup = await Navigator.push<bool>(
           context,
           MaterialPageRoute(
             builder: (_) => TransportScanScreen(
@@ -697,7 +698,20 @@ class _ActionButton extends StatelessWidget {
               title: 'Scanner QR chez client',
             ),
           ),
-        ).then((_) => ctrl.loadMission(mission.id));
+        );
+        await ctrl.loadMission(mission.id);
+        // S16.1 : photos obligatoires après pickup
+        if (okPickup == true && context.mounted) {
+          await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+              builder: (_) => VehiclePhotosScreen(
+                missionId: mission.id,
+                context: 'pickup',
+              ),
+            ),
+          );
+        }
         break;
 
       case 'scan_delivery':
@@ -714,7 +728,7 @@ class _ActionButton extends StatelessWidget {
         break;
 
       case 'scan_final':
-        Navigator.push(
+        final okFinal = await Navigator.push<bool>(
           context,
           MaterialPageRoute(
             builder: (_) => TransportScanScreen(
@@ -723,7 +737,20 @@ class _ActionButton extends StatelessWidget {
               title: 'Scanner QR chez client (retour)',
             ),
           ),
-        ).then((_) => ctrl.loadMission(mission.id));
+        );
+        await ctrl.loadMission(mission.id);
+        // S16.1 : photos obligatoires à la livraison
+        if (okFinal == true && context.mounted) {
+          await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+              builder: (_) => VehiclePhotosScreen(
+                missionId: mission.id,
+                context: 'delivery',
+              ),
+            ),
+          );
+        }
         break;
     }
   }
