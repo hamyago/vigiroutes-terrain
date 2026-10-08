@@ -58,4 +58,23 @@ class ApiService {
   Future<Response> patch(String path, {dynamic data}) async {
     return _dio.patch(path, data: data);
   }
+
+  /// Upload multipart (S16.1 — photos véhicule).
+  /// Le header Content-Type est forcé à multipart/form-data par Dio,
+  /// il ne faut PAS le passer en JSON.
+  Future<Response> postMultipart(
+    String path, {
+    required FormData data,
+  }) async {
+    return _dio.post(
+      path,
+      data: data,
+      options: Options(
+        contentType: 'multipart/form-data',
+        // Augmente le timeout pour les uploads (30s par défaut côté Dio)
+        sendTimeout: const Duration(seconds: 60),
+        receiveTimeout: const Duration(seconds: 60),
+      ),
+    );
+  }
 }

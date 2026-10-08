@@ -1,3 +1,6 @@
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+
 import '../../core/services/api_service.dart';
 import '../models/terrain_models.dart';
 
@@ -106,6 +109,7 @@ class TerrainService {
       data: {
         'latitude': latitude,
         'longitude': longitude,
+        // ignore: use_null_aware_elements — on veut OMETTRE la clé si null
         if (address != null) 'address': address,
       },
     );
@@ -184,5 +188,40 @@ class TerrainService {
     );
     final data = response.data['data'] as Map<String, dynamic>;
     return TransportMissionModel.fromJson(data);
+  }
+
+  /// Upload une photo du véhicule pour une mission transport (S16.1).
+  ///
+  /// [slot] : 'front' | 'back' | 'left' | 'right'
+  /// [filePath] : chemin local du fichier (image compressée par image_picker)
+  ///
+  /// Le contexte (pickup vs delivery) est déterminé côté backend selon
+  /// le `transporter_status` actuel de la mission.
+  ///
+  /// Retourne `true` si l'upload a réussi (201), `false` sinon.
+  Future<bool> uploadVehiclePhoto({
+    required String missionId,
+    required String slot,
+    required String filePath,
+  }) async {
+    try {
+      final formData = FormData.fromMap({
+        'slot': slot,
+        'photo': await MultipartFile.fromFile(
+          filePath,
+          filename: '$slot.jpg',
+        ),
+      });
+
+      final response = await _api.postMultipart(
+        '/ct/transport/missions/$missionId/photos',
+        data: formData,
+      );
+
+      return response.statusCode == 201;
+    } catch (e) {
+      debugPrint('[TerrainService] uploadVehiclePhoto error: $e');
+      return false;
+    }
   }
 }
